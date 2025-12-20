@@ -8,6 +8,11 @@ local.properties
 # Log/OS Files
 *.log
 .DS_Store
+Thumbs.db
+*~
+
+# Editor Config
+.vscode/
 
 # Android Studio generated files and folders
 captures/
