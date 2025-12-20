@@ -4,6 +4,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -105,6 +107,7 @@ fun PlayerScreen(
                              canvasGeometry.rootOffset = coordinates.positionInRoot()
                              canvasGeometry.viewWidth = coordinates.size.width.toFloat()
                              canvasGeometry.viewHeight = coordinates.size.height.toFloat()
+                             viewModel.onViewportSizeChanged(canvasGeometry.viewWidth, canvasGeometry.viewHeight)
                         }
                 ) {
                     if (engine != null && installation != null) {
@@ -145,10 +148,10 @@ fun PlayerScreen(
                             },
                             onDragEnd = {
                                 val dropPos = dragPosition
-                                val virtualRect = canvasGeometry.screenToVirtual(dropPos, installation!!.width, installation!!.height)
-                                if (virtualRect != null) {
+                                val virtualPoint = canvasGeometry.screenToVirtualPoint(dropPos.x, dropPos.y, installation!!.width, installation!!.height)
+                                if (virtualPoint != null) {
                                     val type = dragTool ?: "Ball"
-                                    viewModel.onToolDropped(type, virtualRect)
+                                    viewModel.onToolDropped(type, virtualPoint.x, virtualPoint.y, installation!!.width, installation!!.height)
                                 }
                                 viewModel.endToolDrag() 
                             }
@@ -194,7 +197,7 @@ class CanvasGeometry {
         
         val scaleX = viewWidth / installW
         val scaleY = viewHeight / installH
-        val scale = minOf(scaleX, scaleY) * 0.9f
+        val scale = minOf(scaleX, scaleY)
         
         val offsetX = (viewWidth - installW * scale) / 2f
         val offsetY = (viewHeight - installH * scale) / 2f
@@ -224,6 +227,9 @@ fun InteractivePlayerCanvas(
     val currentOnInteract = rememberUpdatedState(onInteract)
     
     var globalTouchPosition by remember { mutableStateOf(Offset.Zero) }
+    
+    // Shared Drag State
+    val dragState = remember { DragState() }
 
     Canvas(
         modifier = Modifier
@@ -231,190 +237,128 @@ fun InteractivePlayerCanvas(
             .onGloballyPositioned { coordinates ->
                  globalTouchPosition = coordinates.positionInRoot()
             }
+            // Unified Gesture Detector (Pan, Zoom, Select)
             .pointerInput(isInteractive) {
-               if (isInteractive) {
-                   detectDragGestures(
-                       onDragStart = { offset -> 
-                           val global = globalTouchPosition + offset
-                           currentOnInteract.value(global.x, global.y)
-                       },
-                       onDrag = { change, _ ->
-                           change.consume()
-                           val global = globalTouchPosition + change.position
-                           currentOnInteract.value(global.x, global.y)
-                       },
-                       onDragEnd = {}
-                   )
-               } else {
-                   // EDIT MODE
-                   class DragState {
-                        var targetRegionId: String? = null
-                        var mode: String = "NONE" // NONE, MOVE, RESIZE, ROTATE
-                        var startRect = android.graphics.RectF()
-                        var startRotation = 0f
-                        var startTouch = Offset.Zero
+                if (!isInteractive) {
+                    val getScaleInfo = {
+                        val width = installation.width
+                        val height = installation.height
+                        val viewW = canvasGeometry.viewWidth
+                        val viewH = canvasGeometry.viewHeight
+                        val scaleX = viewW / width
+                        val scaleY = viewH / height
+                        val scale = minOf(scaleX, scaleY)
+                        val offsetX = (viewW - width * scale) / 2f
+                        val offsetY = (viewH - height * scale) / 2f 
+                        Triple(scale, offsetX, offsetY)
+                    }
+
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
                         
-                        var accumulatedX = 0f
-                        var accumulatedY = 0f
-                   }
-                   val dragState = DragState()
-                   
-                   detectDragGestures(
-                        onDragStart = { offset ->
-                            val regs = currentRegionsState.value
-                            val width = installation.width
-                            val height = installation.height
-                            
-                            val scaleX = size.width / width
-                            val scaleY = size.height / height
-                            val scale = minOf(scaleX, scaleY) * 0.9f 
-                            val offsetX = (size.width - width * scale) / 2f
-                            val offsetY = (size.height - height * scale) / 2f
-                            
-                            // Convert touch to virtual space
-                            val virtX = (offset.x - offsetX) / scale
-                            val virtY = (offset.y - offsetY) / scale
-                            
-                            var hitId: String? = null
-                            var hitMode = "NONE"
-                            
-                            for (region in regs.reversed()) {
-                                val cx = region.rect.centerX()
-                                val cy = region.rect.centerY()
-                                
-                                // To check hits on rotated regions, rotate the touch point negatively
-                                val rad = Math.toRadians(-region.rotation.toDouble())
-                                val cos = Math.cos(rad)
-                                val sin = Math.sin(rad)
-                                val dx = virtX - cx
-                                val dy = virtY - cy
-                                val rotX = (dx * cos - dy * sin).toFloat() + cx
-                                val rotY = (dx * sin + dy * cos).toFloat() + cy
+                        // 1. HIT TEST (Selection)
+                        val regs = currentRegionsState.value
+                        val (scale, offsetX, offsetY) = getScaleInfo()
+                        val touchX = down.position.x
+                        val touchY = down.position.y
+                        
+                        // Convert touch to virtual space
+                        val virtX = (touchX - offsetX) / scale
+                        val virtY = (touchY - offsetY) / scale
+                        
+                        var hitId: String? = null
+                        
+                        // Check handles and body
+                        for (region in regs.reversed()) {
+                            val cx = region.rect.centerX()
+                            val cy = region.rect.centerY()
+                            val rad = Math.toRadians(-region.rotation.toDouble())
+                            val cos = Math.cos(rad)
+                            val sin = Math.sin(rad)
+                            val dx = virtX - cx
+                            val dy = virtY - cy
+                            val rotX = (dx * cos - dy * sin).toFloat() + cx
+                            val rotY = (dx * sin + dy * cos).toFloat() + cy
 
-                                // Handle radius
-                                val handleR = 40f
-                                
-                                // Rotation Handle (Top Center, extended up by 50 units)
-                                val rotHandleY = region.rect.top - 50f
-                                if (rotX >= cx - handleR && rotX <= cx + handleR &&
-                                    rotY >= rotHandleY - handleR && rotY <= rotHandleY + handleR) {
-                                    hitId = region.id
-                                    hitMode = "ROTATE"
-                                    break
-                                }
-
-                                // Resize Handle (Bottom Right)
-                                if (rotX >= region.rect.right - handleR && rotX <= region.rect.right + handleR &&
-                                    rotY >= region.rect.bottom - handleR && rotY <= region.rect.bottom + handleR) {
-                                    hitId = region.id
-                                    hitMode = "RESIZE"
-                                    break
-                                }
-                                
-                                // Move (Body)
-                                if (rotX >= region.rect.left && rotX <= region.rect.right &&
-                                    rotY >= region.rect.top && rotY <= region.rect.bottom) {
-                                    hitId = region.id
-                                    hitMode = "MOVE"
-                                    break
-                                }
+                            // Check Handle (though with Pinch we don't strictly need handle, but good to prioritize)
+                            val handleR = 40f
+                            if (rotX >= region.rect.right - handleR && rotX <= region.rect.right + handleR &&
+                                rotY >= region.rect.bottom - handleR && rotY <= region.rect.bottom + handleR) {
+                                hitId = region.id
+                                break
                             }
-                            
-                            if (hitId != null) {
-                                dragState.targetRegionId = hitId
-                                dragState.mode = hitMode
-                                val region = regs.find { it.id == hitId }
-                                if (region != null) {
-                                    dragState.startRect = android.graphics.RectF(region.rect)
-                                    dragState.startRotation = region.rotation
-                                    dragState.startTouch = Offset(virtX, virtY)
-                                    dragState.accumulatedX = 0f
-                                    dragState.accumulatedY = 0f
-                                }
-                            }
-                        },
-                        onDrag = { change, dragAmount ->
-                            change.consume()
-                            val tId = dragState.targetRegionId
-                            if (dragState.mode != "NONE" && tId != null) {
-                                val region = currentRegionsState.value.find { it.id == tId } ?: return@detectDragGestures
-                                
-                                val width = installation.width
-                                val height = installation.height
-                                val scaleX = size.width / width
-                                val scaleY = size.height / height
-                                val scale = minOf(scaleX, scaleY) * 0.9f 
-                                
-                                val dx = dragAmount.x / scale
-                                val dy = dragAmount.y / scale
-                                
-                                dragState.accumulatedX += dx
-                                dragState.accumulatedY += dy
-                                
-                                val newRect = android.graphics.RectF(dragState.startRect)
-                                var newRotation = dragState.startRotation
-                                
-                                if (dragState.mode == "MOVE") {
-                                    // Move in rotated space? No, move is usually absolute translation.
-                                    // Complex: if we drag a rotated box, dx/dy are screen aligned.
-                                    // We just add them to the rect.
-                                    newRect.offset(dragState.accumulatedX, dragState.accumulatedY)
-                                } else if (dragState.mode == "RESIZE") {
-                                    // Simple resizing for now (unrotated axis)
-                                    // For true rotated resize, we need to project drag onto axes.
-                                    // Simplifying: Just track distance from center?
-                                    // OR just accept screen-aligned resize which feels weird on rotated box.
-                                    // Let's Rotate the drag delta into local space!
-                                    
-                                    val rad = Math.toRadians(-dragState.startRotation.toDouble())
-                                    val cos = Math.cos(rad)
-                                    val sin = Math.sin(rad)
-                                    
-                                    // We use total accumulated drag
-                                    val adx = dragState.accumulatedX
-                                    val ady = dragState.accumulatedY
-                                    
-                                    val rdx = (adx * cos - ady * sin).toFloat()
-                                    val rdy = (adx * sin + ady * cos).toFloat()
-                                    
-                                    newRect.right += rdx
-                                    newRect.bottom += rdy
-                                     if (newRect.width() < 10f) newRect.right = newRect.left + 10f
-                                     if (newRect.height() < 10f) newRect.bottom = newRect.top + 10f
-                                } else if (dragState.mode == "ROTATE") {
-                                    // Calculate angle from center to current touch
-                                    val cx = dragState.startRect.centerX() + dragState.accumulatedX // if moving? No.
-                                    // Wait, rotation handle drag purely affects rotation.
-                                    
-                                    // Current touch pos in virtual space
-                                    // We need to re-calculate virtX/virtY from event?
-                                    // We can just use accumulated delta + startTouch
-                                    val currX = dragState.startTouch.x + dragState.accumulatedX
-                                    val currY = dragState.startTouch.y + dragState.accumulatedY
-                                    
-                                    val cxCenter = dragState.startRect.centerX()
-                                    val cyCenter = dragState.startRect.centerY()
-                                    
-                                    val angle = Math.toDegrees(Math.atan2((currY - cyCenter).toDouble(), (currX - cxCenter).toDouble())).toFloat()
-                                    // Initial angle was -90 (top)
-                                    // We want rotation relative to upright.
-                                    // Handle is at top (-90 deg from center).
-                                    // So Rotation = angle + 90
-                                    newRotation = angle + 90f
-                                }
-                                
-                                currentOnUpdateState.value(tId, newRect, newRotation)
+                            // Check Body
+                            if (rotX >= region.rect.left && rotX <= region.rect.right &&
+                                rotY >= region.rect.top && rotY <= region.rect.bottom) {
+                                hitId = region.id
+                                break
                             }
                         }
-                   )
-               }
+                        
+                        dragState.targetRegionId = hitId
+                        
+                        // 2. TRANSFORM LOOP
+                        if (hitId != null) {
+                            var zoom = 1f
+                            var pan = Offset.Zero
+                            var pastTouchValue: Offset? = null
+                            
+                            do {
+                                val event = awaitPointerEvent()
+                                val canceled = event.changes.any { it.isConsumed }
+                                if (canceled) break
+                                
+                                val zoomChange = event.calculateZoom()
+                                val panChange = event.calculatePan()
+                                val rotationChange = event.calculateRotation()
+                                
+                                if (zoomChange != 1f || panChange != Offset.Zero) {
+                                     val region = currentRegionsState.value.find { it.id == hitId }
+                                     if (region != null) {
+                                         val newRect = android.graphics.RectF(region.rect)
+                                         
+                                         // Apply Zoom (Pinch)
+                                         if (zoomChange != 1f) {
+                                             val curCx = newRect.centerX()
+                                             val curCy = newRect.centerY()
+                                             val w = newRect.width() * zoomChange
+                                             val h = newRect.height() * zoomChange
+                                             newRect.left = curCx - w/2
+                                             newRect.top = curCy - h/2
+                                             newRect.right = curCx + w/2
+                                             newRect.bottom = curCy + h/2
+                                         }
+                                         
+                                         // Apply Pan
+                                         if (panChange != Offset.Zero) {
+                                             val dx = panChange.x / scale
+                                             val dy = panChange.y / scale
+                                             newRect.offset(dx, dy)
+                                         }
+                                         
+                                         // Rotation (Disabled)
+                                         val newRotation = region.rotation
+                                         
+                                         currentOnUpdateState.value(hitId, newRect, newRotation)
+                                     }
+                                     
+                                     event.changes.forEach { 
+                                         if (it.position != it.previousPosition) {
+                                             it.consume() 
+                                         }
+                                     }
+                                }
+                            } while (event.changes.any { it.pressed })
+                        }
+                    }
+                }
             }
     ) {
          val width = installation.width
          val height = installation.height
          val scaleX = size.width / width
          val scaleY = size.height / height
-         val scale = minOf(scaleX, scaleY) * 0.9f 
+         val scale = minOf(scaleX, scaleY) 
          
          val offsetX = (size.width - width * scale) / 2f
          val offsetY = (size.height - height * scale) / 2f
@@ -423,33 +367,26 @@ fun InteractivePlayerCanvas(
              translate(left = offsetX, top = offsetY)
              scale(scale, scale, pivot = Offset.Zero)
          }) {
-             // 1. LED Preview (Background)
              drawImage(
                  image = bitmap.asImageBitmap(),
                  dstSize = IntSize(width.toInt(), height.toInt())
              )
 
-             // 2. Devices Outline (Overlay)
              installation.devices.forEach { device ->
                  val cx = device.x + device.width / 2f
                  val cy = device.y + device.height / 2f
                  
-                 // Use consistent styling with LayoutEditor
-                 // In Player, we don't have "Selection" concept for devices, so use default Blue style
                  val bodyColor = Color(0xFF2196F3).copy(alpha = 0.5f)
                  val outlineColor = Color.White
                  
                  withTransform({
                      rotate(device.rotation, pivot = Offset(cx, cy))
                  }) {
-                     // Body
                      drawRect(
                         color = bodyColor,
                         topLeft = Offset(device.x, device.y),
                         size = Size(device.width, device.height)
                      )
-                     
-                     // Outline
                      drawRect(
                         color = outlineColor,
                         style = Stroke(width = 2f / scale),
@@ -457,7 +394,6 @@ fun InteractivePlayerCanvas(
                         size = Size(device.width, device.height)
                      )
                      
-                     // Pixel dots
                      val dotsX = 10 
                      val dotsY = (dotsX * (device.height / device.width)).roundToInt().coerceAtLeast(1)
                      val stepX = device.width / dotsX
@@ -475,9 +411,7 @@ fun InteractivePlayerCanvas(
                  }
              }
              
-             // 3. Animation Regions
              regions.forEach { region ->
-                 // Consistent visual style (no dimming in Perform Mode)
                  val borderColor = Color.White 
                  
                  withTransform({
@@ -491,33 +425,15 @@ fun InteractivePlayerCanvas(
                      )
                      
                      if (!isInteractive) {
-                         // Resize Handle (Bottom Right)
                          drawCircle(
                             color = Color.Yellow,
                             radius = 20f / scale,
                             center = Offset(region.rect.right, region.rect.bottom)
                          )
                          
-                         // Rotation Handle (Top Center, Stick + Ball)
-                         val cx = region.rect.centerX()
-                         val top = region.rect.top
-                         drawLine(
-                             color = Color.Blue,
-                             start = Offset(cx, top),
-                             end = Offset(cx, top - 50f),
-                             strokeWidth = 3f / scale
-                         )
-                         drawCircle(
-                            color = Color.Blue,
-                            radius = 20f / scale,
-                            center = Offset(cx, top - 50f)
-                         )
                      }
                  }
              }
-             
-             // Boundary (Optional, making it very subtle or removing if desired)
-             // drawRect(Color.DarkGray, style = Stroke(1f / scale), size = Size(width, height))
          }
     }
 }
@@ -530,7 +446,7 @@ fun AnimationToolbox(
 ) {
     Row(
         modifier = Modifier
-            .width(300.dp) // Fixed width palette
+            .width(300.dp)
             .height(100.dp)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f), MaterialTheme.shapes.medium)
             .border(1.dp, Color.White.copy(alpha = 0.3f), MaterialTheme.shapes.medium),
@@ -562,8 +478,6 @@ fun ToolItem(
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { offset -> 
-                        // offset is local to the item
-                        // Global start = ItemGlobal + LocalOffset
                         val start = globalPosition + offset
                         onDragStart(type, start) 
                     }, 

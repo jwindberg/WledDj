@@ -181,10 +181,10 @@ fun LayoutCanvas(
                         // Calculate scale
                         val scaleX = canvasWidth / install.width
                         val scaleY = canvasHeight / install.height
-                        val scale = minOf(scaleX, scaleY) * 0.9f 
+                        val scale = minOf(scaleX, scaleY) 
                         
                         val offsetX = (canvasWidth - install.width * scale) / 2f
-                        val offsetY = (canvasHeight - install.height * scale) / 2f
+                        val offsetY = 0f // Align Top (Match Player)
                         
                         val virtualX = (offset.x - offsetX) / scale
                         val virtualY = (offset.y - offsetY) / scale
@@ -215,7 +215,7 @@ fun LayoutCanvas(
                             val canvasHeight = size.height.toFloat()
                             val scaleX = canvasWidth / install.width
                             val scaleY = canvasHeight / install.height
-                            val scale = minOf(scaleX, scaleY) * 0.9f 
+                            val scale = minOf(scaleX, scaleY) 
 
                             // Scale the drag amount
                             val dbX = dragAmount.x / scale
@@ -251,6 +251,26 @@ fun LayoutCanvas(
                                 if (kotlin.math.abs(newY + device.height - other.y) < snapThreshold) newY = other.y - device.height
                             }
                             if (kotlin.math.abs(newY) < snapThreshold) newY = 0f
+                            
+                            // Calculate offsets to determine screen boundaries in virtual space
+                            val offsetX = (canvasWidth - install.width * scale) / 2f
+                            val offsetY = 0f // Align Top (Match Player)
+                            
+                            // Visual Boundaries (Virtual Coordinates at Screen Edges)
+                            // Top Edge of Screen (y=0) -> Virtual Y = (0 - offsetY) / scale
+                            // Bottom Edge of Screen (y=H) -> Virtual Y = (H - offsetY) / scale
+                            
+                            val minVisX = -offsetX / scale
+                            val minVisY = -offsetY / scale
+                            val maxVisX = (canvasWidth - offsetX) / scale
+                            val maxVisY = (canvasHeight - offsetY) / scale
+                            
+                            // Constraint Logic: Keep inside PHYSICAL SCREEN bounds
+                            // This allows dragging into the "black bars" (negative coords or > 1000)
+                            // which solves the "Top Fourth" dead zone issue.
+                            
+                            newX = newX.coerceIn(minVisX, maxVisX - device.width)
+                            newY = newY.coerceIn(minVisY, maxVisY - device.height)
 
                             // Send absolute position
                             currentOnMoveDeviceState.value(
@@ -273,10 +293,10 @@ fun LayoutCanvas(
         // Calculate scale (Fit Center)
         val scaleX = size.width / width
         val scaleY = size.height / height
-        val scale = minOf(scaleX, scaleY) * 0.9f // 90% fit
+        val scale = minOf(scaleX, scaleY) // 100% fit
         
         val offsetX = (size.width - width * scale) / 2f
-        val offsetY = (size.height - height * scale) / 2f
+        val offsetY = 0f // Align Top (Match Player)
         
         // Apply Transform
         withTransform({

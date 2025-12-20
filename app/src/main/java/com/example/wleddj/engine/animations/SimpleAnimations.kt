@@ -32,8 +32,21 @@ class BouncingBallAnimation(
         x += dx
         y += dy
 
-        if (x - radius < 0 || x + radius > width) dx = -dx
-        if (y - radius < 0 || y + radius > height) dy = -dy
+        if (x - radius < 0) {
+            x = radius
+            dx = Math.abs(dx) // Ensure moving right
+        } else if (x + radius > width) {
+            x = width - radius
+            dx = -Math.abs(dx) // Ensure moving left
+        }
+
+        if (y - radius < 0) {
+            y = radius
+            dy = Math.abs(dy) // Ensure moving down
+        } else if (y + radius > height) {
+            y = height - radius
+            dy = -Math.abs(dy) // Ensure moving up
+        }
 
         canvas.drawCircle(x, y, radius, paint)
     }

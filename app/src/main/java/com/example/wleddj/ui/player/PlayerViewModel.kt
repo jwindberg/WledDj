@@ -28,17 +28,109 @@ class PlayerViewModel(
         loadInstallation()
     }
 
+    private var _originalInstallation: com.example.wleddj.data.model.Installation? = null
+
     private fun loadInstallation() {
         viewModelScope.launch {
-            val installation = repository.getInstallation(installationId)
-            if (installation != null) {
-                _installation.value = installation
-                // Initialize Engine
-                val newEngine = RenderEngine(installation)
-                _engine.value = newEngine
-                newEngine.start()
+            val loadedInst = repository.getInstallation(installationId)
+            if (loadedInst != null) {
+                _originalInstallation = loadedInst
+                // Initial load with existing bounds (square/default).
+                // We will resize correctly once UI reports screen size.
+                // But initially, ensure we don't clip obviously.
+                updateInstallationBounds(loadedInst.width, loadedInst.height)
             }
         }
+    }
+    
+    // Called by UI when screen size is known
+    fun onViewportSizeChanged(viewW: Float, viewH: Float) {
+        val orig = _originalInstallation ?: return
+        
+        // Target Aspect Ratio
+        val screenRatio = if (viewW > 0) viewH / viewW else 2.0f
+        
+        // 1. Determine Bounds of Content
+        var minX = 0f
+        var minY = 0f
+        var maxX = orig.width
+        var maxY = orig.height
+        
+        orig.devices.forEach { d ->
+            if (d.x < minX) minX = d.x
+            if (d.y < minY) minY = d.y
+            if (d.x + d.width > maxX) maxX = d.x + d.width
+            if (d.y + d.height > maxY) maxY = d.y + d.height
+        }
+        
+        // 2. Normalize Coordinates (Shift Negative ONLY)
+        // We only shift if content is Out of Bounds (Negative).
+        // If content is at +200, we PRESERVE that margin (User Intent).
+        // We also ensure Width is at least Original Width (1000) to prevent usage-based zooming.
+        
+        val normalizeX = if (minX < 0f) -minX else 0f
+        val normalizeY = if (minY < 0f) -minY else 0f
+        
+        // Calculate Content Dimensions
+        // We need enough width to hold the Rightmost Point (maxX + shift).
+        // AND we default to at least orig.width (1000) to keep scale consistent (1 Unit = 1/1000 Screen).
+        
+        val neededW = maxX + normalizeX
+        val contentW = maxCode(neededW, orig.width)
+        val contentH = maxY + normalizeY
+        
+        // 3. Aspect Ratio Padding
+        // We want finalW to cover content.
+        // We want finalH to cover content AND satisfy aspect ratio.
+        
+        var finalW = contentW
+        var finalH = contentW * screenRatio
+        
+        // If aspect fit is too short for content, expand height
+        if (contentH > finalH) {
+             finalH = contentH
+             // If we expanded height, do we need to expand width to keep ratio?
+             // Usually no, we accept scrolling or "Zoom Out" (Letterboxing on sides).
+             // But let's stick to width-based scale.
+        }
+        
+        // 4. Centering Logic (Vertical) - REMOVED
+        // User prefers WYSIWYG from top-left. Centering introduces "spacers" that shift 
+        // top-aligned devices down. We just anchor to 0,0 (after normalization).
+        
+        // Total Shift = Normalize Only
+        val totalShiftX = normalizeX
+        val totalShiftY = normalizeY
+        
+        // 5. Apply Shift to Devices
+        val shiftedDevices = orig.devices.map { d ->
+            d.copy(x = d.x + totalShiftX, y = d.y + totalShiftY)
+        }
+        
+        val runtimeInst = orig.copy(
+             width = finalW + 1f, // +1 buffer
+             height = finalH + 1f,
+             devices = shiftedDevices
+        )
+        
+        // Update State
+        if (_installation.value != runtimeInst) {
+             _installation.value = runtimeInst
+             val newEngine = RenderEngine(runtimeInst)
+             _engine.value = newEngine
+             newEngine.start()
+        }
+    }
+    
+    // Helper used by loadInstallation if viewport not ready
+    private fun updateInstallationBounds(w: Float, h: Float) {
+         // Fallback default
+         // Just load as is
+         val orig = _originalInstallation ?: return
+         _installation.value = orig
+         val newEngine = RenderEngine(orig)
+         _engine.value = newEngine
+         newEngine.start()
     }
 
     // Regions State
@@ -112,20 +204,25 @@ class PlayerViewModel(
         _draggedTool.value = null
     }
     
-    fun onToolDropped(type: String, rect: android.graphics.RectF) {
+    fun onToolDropped(type: String, dropX: Float, dropY: Float, installW: Float, installH: Float) {
         val animation = when(type) {
-            "Ball" -> com.example.wleddj.engine.animations.BouncingBallAnimation(50f, 50f, 30f)
+            "Ball" -> com.example.wleddj.engine.animations.BouncingBallAnimation(dropX, dropY, 30f)
             "Static" -> com.example.wleddj.engine.animations.StationaryBallAnimation()
             "Rects" -> com.example.wleddj.engine.animations.RandomRectsAnimation()
-            else -> com.example.wleddj.engine.animations.BouncingBallAnimation(50f, 50f, 30f)
+            else -> com.example.wleddj.engine.animations.BouncingBallAnimation(dropX, dropY, 30f)
         }
+        
+        // Create a region that covers the entire installation (which is already expanded to fit devices)
         val region = com.example.wleddj.data.model.AnimationRegion(
-            rect = rect,
+            rect = android.graphics.RectF(0f, 0f, installW, installH),
             animation = animation
         )
         _engine.value?.addRegion(region)
         refreshRegions()
     }
+    
+    private fun minCode(a: Float, b: Float): Float = if (a < b) a else b
+    private fun maxCode(a: Float, b: Float): Float = if (a > b) a else b
 
     // Interaction Mode
     private val _isInteractiveMode = MutableStateFlow(false)
