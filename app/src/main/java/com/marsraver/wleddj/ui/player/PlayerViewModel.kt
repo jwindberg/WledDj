@@ -203,6 +203,9 @@ class PlayerViewModel(
             "Rects" -> com.marsraver.wleddj.engine.animations.RandomRectsAnimation()
             "Fireworks" -> com.marsraver.wleddj.engine.animations.FireworksAnimation()
             "Aurora Borealis" -> com.marsraver.wleddj.engine.animations.AuroraBorealisAnimation()
+            "Blurz" -> com.marsraver.wleddj.engine.animations.BlurzAnimation()
+            "GEQ" -> com.marsraver.wleddj.engine.animations.GeqAnimation()
+            "Flashlight" -> com.marsraver.wleddj.engine.animations.FlashlightAnimation()
             else -> com.marsraver.wleddj.engine.animations.BouncingBallAnimation(dropX, dropY, 30f)
         }
     }
@@ -220,6 +223,9 @@ class PlayerViewModel(
                 is com.marsraver.wleddj.engine.animations.RandomRectsAnimation -> "Rects"
                 is com.marsraver.wleddj.engine.animations.FireworksAnimation -> "Fireworks"
                 is com.marsraver.wleddj.engine.animations.AuroraBorealisAnimation -> "Aurora Borealis"
+                is com.marsraver.wleddj.engine.animations.BlurzAnimation -> "Blurz"
+                is com.marsraver.wleddj.engine.animations.GeqAnimation -> "GEQ"
+                is com.marsraver.wleddj.engine.animations.FlashlightAnimation -> "Flashlight"
                 else -> "Ball"
             }
             

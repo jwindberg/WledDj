@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
@@ -69,15 +70,8 @@ fun LayoutEditorScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { 
-                    val title = if (selectedDevice != null) {
-                        "Selected: ${selectedDevice.name}"
-                    } else {
-                        installation?.name ?: "Layout Editor"
-                    }
-                    Text(title)
-                },
+            CenterAlignedTopAppBar(
+                title = { Text("Device Layout") },
                 navigationIcon = {
                     IconButton(onClick = {
                         viewModel.saveProject()
@@ -99,7 +93,7 @@ fun LayoutEditorScreen(
                         viewModel.saveProject()
                         onPlay()
                     }) {
-                        Icon(Icons.Default.PlayArrow, "Play Mode")
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, "Play Mode")
                     }
                 }
             )
@@ -238,7 +232,12 @@ fun LayoutCanvas(
                                      val dy = panChange.y / currentScale
                                      dragX += dx
                                      dragY += dy
-                                     currentOnMoveDeviceState.value(hitDevice, dragX, dragY, hitDevice.width, hitDevice.height, hitDevice.rotation)
+                                     
+                                     // SNAP TO GRID (10px)
+                                     val snapX = (dragX / 10f).roundToInt() * 10f
+                                     val snapY = (dragY / 10f).roundToInt() * 10f
+                                     
+                                     currentOnMoveDeviceState.value(hitDevice, snapX, snapY, hitDevice.width, hitDevice.height, hitDevice.rotation)
                                      event.changes.forEach { it.consume() }
                                 }
                                 if (!event.changes.any { it.pressed }) {

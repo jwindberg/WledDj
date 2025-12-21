@@ -10,12 +10,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LockOpen
+// import androidx.compose.material.icons.filled.Edit // Removed unused edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -57,6 +59,21 @@ fun PlayerScreen(
         factory = PlayerViewModel.Factory(installationId, repository)
     )
 
+    // Permission Request
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // Permission granted, audio will work
+        } else {
+            // Permission denied, maybe show snackbar?
+        }
+    }
+    
+    LaunchedEffect(Unit) {
+        permissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+    }
+
     val engine by viewModel.engine.collectAsState()
     val previewFrame by (engine?.previewFrame ?: MutableStateFlow(null)).collectAsState()
     
@@ -76,24 +93,67 @@ fun PlayerScreen(
     // Track the offset of the content container (due to Scaffold padding, etc.)
     var containerOffset by remember { mutableStateOf(Offset.Zero) }
 
+    // Wake Lock Logic
+    var isScreenLocked by remember { mutableStateOf(false) }
+    
+    // Auto-unlock if leaving performance mode? Not strictly required but good UX.
+    LaunchedEffect(isInteractive) {
+        if (!isInteractive) isScreenLocked = false
+    }
+
+    DisposableEffect(isScreenLocked) {
+        val window = (context as? android.app.Activity)?.window
+        if (isScreenLocked) {
+            window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose {
+            window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+    
+    // Back Handler: In Performance Mode -> Go to Edit Mode
+    androidx.activity.compose.BackHandler(enabled = isInteractive) {
+        viewModel.toggleInteractiveMode()
+    }
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(if (isInteractive) "Perform Mode" else "Edit Mode") },
+            CenterAlignedTopAppBar(
+                title = { Text(if (isInteractive) "Performance Mode" else "Animation Layout") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    IconButton(onClick = {
+                        if (isInteractive) viewModel.toggleInteractiveMode() else onBack()
+                    }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack, 
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 },
                 actions = {
-                     IconButton(onClick = { viewModel.toggleInteractiveMode() }) {
-                        Icon(
-                            if (isInteractive) Icons.Filled.Lock else Icons.Filled.Edit, 
-                            "Toggle Mode"
-                        )
-                    }
-                     IconButton(onClick = { viewModel.deleteSelection() }) {
-                        Icon(Icons.Default.Delete, "Delete Selection")
+                    if (!isInteractive) {
+                        if (selectedRegionId != null) {
+                             IconButton(onClick = { viewModel.deleteSelection() }) {
+                                Icon(Icons.Default.Delete, "Delete Selection", tint = MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
+                         // Arrow to Performance Mode
+                         IconButton(onClick = { viewModel.toggleInteractiveMode() }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward, 
+                                contentDescription = "Enter Performance Mode",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    } else {
+                         // Interactive (Performance) Mode - Lock Logic
+                         val icon = if (isScreenLocked) Icons.Default.Lock else Icons.Default.LockOpen
+                         val desc = if (isScreenLocked) "Unlock Screen" else "Lock Screen"
+                         
+                         IconButton(onClick = { isScreenLocked = !isScreenLocked }) {
+                            Icon(icon, desc, tint = MaterialTheme.colorScheme.onSurface)
+                        }
                     }
                 }
             )
@@ -109,7 +169,8 @@ fun PlayerScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .fillMaxSize()
+                .padding(bottom = padding.calculateBottomPadding()) // Ignore Top Padding to draw behind status bar
                 .onGloballyPositioned { coordinates ->
                     containerOffset = coordinates.positionInRoot()
                 }
@@ -384,6 +445,22 @@ fun InteractivePlayerCanvas(
                             currentOnInteractionEnd.value()
                         }
                      }
+                } else {
+                    // Performance Mode: Pass raw touch to engine (Flashlight, etc)
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        onInteract(down.position.x, down.position.y)
+                        
+                        do {
+                            val event = awaitPointerEvent()
+                            event.changes.forEach { 
+                                if (it.pressed) {
+                                    onInteract(it.position.x, it.position.y)
+                                    it.consume()
+                                }
+                            }
+                        } while (event.changes.any { it.pressed })
+                    }
                 }
             }
     ) {
@@ -452,7 +529,9 @@ fun InteractivePlayerCanvas(
              }
              
              regions.forEach { region ->
-                 val isSelected = region.id == selectedRegionId
+                 // In Performance Mode (isInteractive), nothing is "selected" visually
+                 val isSelected = !isInteractive && (region.id == selectedRegionId)
+                 
                  withTransform({
                      rotate(region.rotation, pivot = Offset(region.rect.centerX(), region.rect.centerY()))
                  }) {
@@ -523,7 +602,10 @@ fun AnimationSelectionSheet(
                     "Static", 
                     "Rects", 
                     "Fireworks", 
-                    "Aurora Borealis"
+                    "Aurora Borealis",
+                    "Blurz",
+                    "GEQ",
+                    "Flashlight"
                 ).sorted()
                 
                 items(animations.size) { index ->

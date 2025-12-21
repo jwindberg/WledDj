@@ -20,13 +20,35 @@ class FireworksAnimation : Animation {
     private val particles = mutableListOf<Particle>()
     private val paint = Paint().apply { isAntiAlias = true }
     private var timeUntilNextFirework = 0f
+    
+    // Audio
+    private val loudnessMeter = com.marsraver.wleddj.engine.audio.LoudnessMeter()
 
     override fun draw(canvas: Canvas, width: Float, height: Float) {
-        // Update Logic
-        timeUntilNextFirework -= 1f // Assuming ~60fps, unit is frames
+        val loudness = loudnessMeter.getNormalizedLoudness()
+        // Normalized 0-1024
+        
+        // Spawn Logic
+        timeUntilNextFirework -= 1f 
+        
+        // Audio Reactivity:
+        // Increase spawn chance if loud
+        val spawnThreshold = if (loudness > 600) 5f else 60f // Frames
+        
         if (timeUntilNextFirework <= 0) {
             spawnFirework(width, height)
-            timeUntilNextFirework = Random.nextFloat() * 60f + 30f // Every 0.5-1.5s
+            
+            // Random interval, modulated by loudness
+            // Loud = fast interval (5-20 frames)
+            // Quiet = slow interval (30-90 frames)
+            val baseInterval = if (loudness > 500) 10f else 60f
+            val variance = if (loudness > 500) 10f else 60f
+            timeUntilNextFirework = Random.nextFloat() * variance + baseInterval
+        }
+        // Force spawn on big impact?
+        if (loudnessMeter.getPeakLoudness() > 900 && timeUntilNextFirework > 5) {
+             // Beat detection-ish (very crude)
+             // Not implemented fully to avoid spamming
         }
 
         val iterator = particles.iterator()
@@ -43,10 +65,6 @@ class FireworksAnimation : Animation {
             }
         }
 
-        // Draw Logic
-        // Clear background? No, engine handles that (black or transparent).
-        // Since we are additive usually, but here we just draw over.
-
         particles.forEach { p ->
             paint.color = p.color
             paint.alpha = (p.alpha * 255).toInt()
@@ -55,8 +73,9 @@ class FireworksAnimation : Animation {
     }
 
     private fun spawnFirework(w: Float, h: Float) {
+        // ... spawn logic
         val cx = Random.nextFloat() * w
-        val cy = Random.nextFloat() * h * 0.5f // Top half explosion
+        val cy = Random.nextFloat() * h * 0.5f 
         val baseColor = Color.HSVToColor(floatArrayOf(Random.nextFloat() * 360f, 1f, 1f))
         
         for (i in 0 until 50) {
@@ -74,18 +93,23 @@ class FireworksAnimation : Animation {
             )
         }
     }
+    
+    override fun destroy() {
+        loudnessMeter.stop()
+    }
 }
 
 class AuroraBorealisAnimation : Animation {
     private val paint = Paint().apply {
         style = Paint.Style.STROKE
-        strokeWidth = 20f // Blurred lines handled by alpha stacking or shader? 
-        // Standard canvas stroke is hard. We can use multiple paths with alpha.
+        strokeWidth = 20f 
         isAntiAlias = true
     }
     private var offset = 0f
 
+
     override fun draw(canvas: Canvas, width: Float, height: Float) {
+        // Standard speed
         offset += 0.05f
         
         // Draw 3 layers of waves
@@ -99,10 +123,9 @@ class AuroraBorealisAnimation : Animation {
         val path = Path()
         
         paint.color = color
-        paint.alpha = 100 // Transparent
-        paint.strokeWidth = 30f // Thicker for glow effect simulation
+        paint.alpha = 100 
+        paint.strokeWidth = 30f 
         
-        // Simple sine wave
         val points = 50
         val step = w / points
         
@@ -116,8 +139,50 @@ class AuroraBorealisAnimation : Animation {
         }
         
         canvas.drawPath(path, paint)
+    }
+    
+    override fun destroy() {
+        // No cleanup needed
+    }
+}
+
+class FlashlightAnimation : Animation {
+    private var targetX = -1f
+    private var targetY = -1f
+    
+    private val paint = Paint().apply {
+        isAntiAlias = true
+    }
+
+    override fun draw(canvas: Canvas, width: Float, height: Float) {
+        // Init center if not set
+        if (targetX < 0) {
+            targetX = width / 2f
+            targetY = height / 2f
+        }
         
-        // Second pass for "glow" (thicker, lower alpha)?
-        // Let's keep it simple for MVP.
+        // Fixed radius (Ball size approx = 30f)
+        val radius = 30f 
+        
+        // Yellow Glowing Spot
+        // RadialGradient: Center (Yellow), Edge (Transparent)
+        val shader = android.graphics.RadialGradient(
+            targetX, targetY,
+            radius,
+            intArrayOf(Color.YELLOW, Color.TRANSPARENT),
+            floatArrayOf(0.2f, 1.0f),
+            android.graphics.Shader.TileMode.CLAMP
+        )
+        
+        paint.shader = shader
+        
+        // Draw full rect to allow spill
+        canvas.drawRect(0f, 0f, width, height, paint)
+    }
+
+    override fun onTouch(x: Float, y: Float): Boolean {
+        targetX = x
+        targetY = y
+        return true
     }
 }

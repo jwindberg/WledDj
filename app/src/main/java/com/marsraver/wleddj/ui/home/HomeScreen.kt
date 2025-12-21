@@ -27,7 +27,7 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("WledDj Installations") })
+            CenterAlignedTopAppBar(title = { Text("Installations") })
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { showDialog = true }) {

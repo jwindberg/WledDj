@@ -20,6 +20,7 @@ class RenderEngine(
 ) {
 
 
+    private val lock = Any()
     private var isRunning = false
     private val scope = CoroutineScope(Dispatchers.Default + Job())
     
@@ -46,41 +47,57 @@ class RenderEngine(
     private val _previewFrame = MutableStateFlow<PreviewFrame?>(null)
     val previewFrame = _previewFrame.asStateFlow()
 
+    // Animations (Regions)
+    private val activeRegions = mutableListOf<AnimationRegion>()
+
     init {
         recalculateBounds()
     }
 
-    // Animations (Regions)
-    private val activeRegions = mutableListOf<AnimationRegion>()
+
 
     fun addRegion(region: AnimationRegion) {
-        synchronized(activeRegions) {
+        synchronized(lock) {
             activeRegions.add(region)
+            recalculateBounds()
         }
     }
 
     fun clearAnimations() {
-        synchronized(activeRegions) {
+        synchronized(lock) {
+            activeRegions.forEach { it.animation.destroy() }
             activeRegions.clear()
+            recalculateBounds()
         }
     }
     
     fun getRegions(): List<AnimationRegion> {
-        return synchronized(activeRegions) { activeRegions.toList() }
+        synchronized(lock) {
+            return activeRegions.toList()
+        }
     }
 
     fun updateRegion(id: String, newRect: RectF, newRotation: Float) {
-        synchronized(activeRegions) {
+        synchronized(lock) {
             val index = activeRegions.indexOfFirst { it.id == id }
             if (index != -1) {
                 activeRegions[index] = activeRegions[index].copy(rect = newRect, rotation = newRotation)
+                recalculateBounds()
             }
         }
     }
     
     fun removeRegion(id: String) {
-        synchronized(activeRegions) {
-            activeRegions.removeAll { it.id == id }
+        synchronized(lock) {
+            val iter = activeRegions.iterator()
+            while (iter.hasNext()) {
+                val region = iter.next()
+                if (region.id == id) {
+                    region.animation.destroy()
+                    iter.remove()
+                }
+            }
+            recalculateBounds()
         }
     }
 
@@ -88,65 +105,14 @@ class RenderEngine(
     private val socket = DatagramSocket()
 
     fun updateInstallation(newInstallation: Installation) {
-        installation = newInstallation
-        recalculateBounds()
+        synchronized(lock) {
+            installation = newInstallation
+            recalculateBounds()
+        }
     }
     
-    private fun recalculateBounds() {
-        // Union of Canvas (0,0 -> W,H) and all Devices
-        var minX = 0f
-        var minY = 0f
-        var maxX = installation.width
-        var maxY = installation.height
-        
-        installation.devices.forEach { device ->
-            // Calculate 4 corners of the rotated device
-            val cx = device.x + device.width / 2f
-            val cy = device.y + device.height / 2f
-            val rad = Math.toRadians(device.rotation.toDouble())
-            val cos = Math.cos(rad)
-            val sin = Math.sin(rad)
-            
-            val w2 = device.width / 2f
-            val h2 = device.height / 2f
-            
-            // Corners relative to center
-            val corners = listOf(
-                Pair(-w2, -h2), Pair(w2, -h2),
-                Pair(w2, h2), Pair(-w2, h2)
-            )
-            
-            corners.forEach { (dx, dy) ->
-                val rx = (dx * cos - dy * sin) + cx
-                val ry = (dx * sin + dy * cos) + cy
-                
-                if (rx < minX) minX = rx.toFloat()
-                if (ry < minY) minY = ry.toFloat()
-                if (rx > maxX) maxX = rx.toFloat()
-                if (ry > maxY) maxY = ry.toFloat()
-            }
-        }
-        
-        // Add padding just in case
-        val padding = 50f
-        minX -= padding
-        minY -= padding
-        maxX += padding
-        maxY += padding
-
-        renderBounds.set(minX, minY, maxX, maxY)
-        renderOriginX = minX
-        renderOriginY = minY
-        
-        val newW = (maxX - minX).toInt().coerceAtLeast(1)
-        val newH = (maxY - minY).toInt().coerceAtLeast(1)
-        
-        // Resize buffer if bounds size changed significantly or if previously default
-        if (newW != bufferBitmap.width || newH != bufferBitmap.height) {
-            bufferBitmap = Bitmap.createBitmap(newW, newH, Bitmap.Config.ARGB_8888)
-            canvas = Canvas(bufferBitmap)
-        }
-    }
+    // START/STOP are fine as is (boolean flag).
+    // Loop calls renderFrame.
 
     fun start() {
         if (isRunning) return
@@ -158,11 +124,15 @@ class RenderEngine(
                 renderFrame()
                 mapAndSend()
                 
-                _previewFrame.emit(PreviewFrame(
-                    bufferBitmap.copy(Bitmap.Config.ARGB_8888, false),
-                    renderOriginX,
-                    renderOriginY
-                ))
+                // Be careful extracting bitmap under lock vs emitting outside
+                val frame = synchronized(lock) {
+                     PreviewFrame(
+                        bufferBitmap.copy(Bitmap.Config.ARGB_8888, false),
+                        renderOriginX,
+                        renderOriginY
+                    )
+                }
+                _previewFrame.emit(frame)
 
                 // Target 30 FPS (~33ms)
                 val elapsed = System.currentTimeMillis() - startTime
@@ -177,108 +147,122 @@ class RenderEngine(
     }
 
     private fun renderFrame() {
-        canvas.drawColor(Color.BLACK)
-        
-        // Global Transform: Translate World -> Bitmap Space
-        // World (e.g. -500, -500) -> Bitmap (0, 0)
-        canvas.save()
-        canvas.translate(-renderOriginX, -renderOriginY)
-        
-        // Draw regions
-        val regionsCopy = synchronized(activeRegions) { activeRegions.toList() }
-        regionsCopy.forEach { region ->
+        synchronized(lock) {
+            canvas.drawColor(Color.BLACK)
+            
+            // Global Transform: Translate World -> Bitmap Space
             canvas.save()
-            // 1. Rotate around region center
-            canvas.rotate(region.rotation, region.rect.centerX(), region.rect.centerY())
-            // 2. Clip
-            canvas.clipRect(region.rect)
-            // 3. Draw at Top-Left
-            canvas.translate(region.rect.left, region.rect.top)
-            region.animation.draw(canvas, region.rect.width(), region.rect.height())
-            canvas.restore()
+            canvas.translate(-renderOriginX, -renderOriginY)
+            
+            // Draw regions
+            // No need to copy list if we are under lock and iterating
+            activeRegions.forEach { region ->
+                canvas.save()
+                canvas.rotate(region.rotation, region.rect.centerX(), region.rect.centerY())
+                canvas.clipRect(region.rect)
+                canvas.translate(region.rect.left, region.rect.top)
+                region.animation.draw(canvas, region.rect.width(), region.rect.height())
+                canvas.restore()
+            }
+            canvas.restore() 
         }
-        canvas.restore() 
     }
 
     private val deviceBuffers = mutableMapOf<String, ByteArray>()
 
     private suspend fun mapAndSend() {
-        val install = installation // Capture reference
-        install.devices.forEach { device ->
-            try {
-                // Reuse buffer or create new if size changed
-                val bufferSize = device.pixelCount * 3
-                val existing = deviceBuffers[device.macAddress] // specific unique ID? using MAC or IP as key
-                val data = if (existing != null && existing.size == bufferSize) {
-                    existing
-                } else {
-                    val newBuf = ByteArray(bufferSize)
-                    deviceBuffers[device.macAddress] = newBuf
-                    newBuf
+        // Mapping needs access to BufferBitmap (read) and Installation (read)
+        // Should be synchronized?
+        // Map is heavy. Holding lock might frame drop?
+        // But we need consistent state.
+        
+        // We can capture a snapshot of bitmap? No, expensive.
+        // We can interact with bufferBitmap under lock.
+        
+        // Let's optimize: mapAndSend iterates devices and reads pixels.
+        // Reading pixels from Bitmap should be safe if bitmap isn't recycled.
+        // But recalculateBounds REPLACES bufferBitmap.
+        // So we MUST hold lock or capture reference.
+        
+        synchronized(lock) {
+             val install = installation 
+             install.devices.forEach { device ->
+                try {
+                    val bufferSize = device.pixelCount * 3
+                    val existing = deviceBuffers[device.macAddress] 
+                    val data = if (existing != null && existing.size == bufferSize) {
+                        existing
+                    } else {
+                        val newBuf = ByteArray(bufferSize)
+                        deviceBuffers[device.macAddress] = newBuf
+                        newBuf
+                    }
+                    
+                    mapDeviceToBuffer(device, data) // Uses bufferBitmap
+                    sendUdp(device.ip, data)
+                    
+                } catch (e: Exception) {
                 }
-                
-                mapDeviceToBuffer(device, data)
-                sendUdp(device.ip, data)
-                
-            } catch (e: Exception) {
-                // Ignore send errors to prevent loop crash
             }
         }
     }
-
+    
     fun handleTouch(x: Float, y: Float): Boolean {
-        // Iterate in reverse to hit top-most first
-        val regionsCopy = synchronized(activeRegions) { activeRegions.toList() }
-        
-        for (region in regionsCopy.reversed()) {
-            val cx = region.rect.centerX()
-            val cy = region.rect.centerY()
-            
-            val dx = x - cx
-            val dy = y - cy
-            val rad = Math.toRadians(-region.rotation.toDouble())
-            val cos = Math.cos(rad)
-            val sin = Math.sin(rad)
-            
-            val rotX = (dx * cos - dy * sin).toFloat() + cx
-            val rotY = (dx * sin + dy * cos).toFloat() + cy
-            
-            if (region.rect.contains(rotX, rotY)) {
-                val localX = rotX - region.rect.left
-                val localY = rotY - region.rect.top
-                if (region.animation.onTouch(localX, localY)) {
-                    return true
+        synchronized(lock) {
+            // Iterate in reverse
+             for (region in activeRegions.reversed()) {
+                 // ... logic ...
+                 // Duplicate logic from before but using region directly
+                val cx = region.rect.centerX()
+                val cy = region.rect.centerY()
+                
+                val dx = x - cx
+                val dy = y - cy
+                val rad = Math.toRadians(-region.rotation.toDouble())
+                val cos = Math.cos(rad)
+                val sin = Math.sin(rad)
+                
+                val rotX = (dx * cos - dy * sin).toFloat() + cx
+                val rotY = (dx * sin + dy * cos).toFloat() + cy
+                
+                if (region.rect.contains(rotX, rotY)) {
+                    val localX = rotX - region.rect.left
+                    val localY = rotY - region.rect.top
+                    if (region.animation.onTouch(localX, localY)) {
+                        return true
+                    }
                 }
-            }
+             }
         }
         return false
     }
 
     private fun mapDeviceToBuffer(device: WledDevice, data: ByteArray) {
-        // Vector-based mapping
+        // This is called UNDER LOCk from mapAndSend
+        // ... (Logic unchanged, just ensure variable access is valid)
+        // Uses renderOriginX/Y and bufferBitmap
+             
         val rad = Math.toRadians(device.rotation.toDouble())
         val cos = Math.cos(rad)
         val sin = Math.sin(rad)
         val cx = device.x + device.width / 2f
         val cy = device.y + device.height / 2f
         
-        // Heuristic: Is this a Matrix?
         val aspectRatio = if (device.height > 1f) device.width / device.height else 100f
         
-        // Relaxed Heurisitc:
-        // 1. Explicit width set (>1)
-        // 2. High pixel count (>30) and roughly rectangular (< 6:1)
-        // 3. Square-ish (< 2:1) and > 9 pixels (3x3)
         val isLikelyMatrix = (device.segmentWidth > 1) ||
                              (device.pixelCount > 30 && aspectRatio < 6.0f) ||
                              (device.pixelCount > 9 && aspectRatio < 2.0f)
         
-        val sampleOffsetX = -renderOriginX // Add this to WorldX to get BitmapX
+        val sampleOffsetX = -renderOriginX 
         val sampleOffsetY = -renderOriginY
         
+        val w = bufferBitmap.width
+        val h = bufferBitmap.height
+        
         if (isLikelyMatrix) {
-            // 2D Matrix Mapping
-            var cols = device.segmentWidth
+            // ... (Matrix Logic)
+             var cols = device.segmentWidth
             if (cols <= 0) {
                  val sqrt = kotlin.math.sqrt(device.pixelCount.toFloat())
                  if (kotlin.math.abs(sqrt - sqrt.roundToInt()) < 0.01f) {
@@ -306,8 +290,8 @@ class RenderEngine(
                 val rotX = (localX * cos - localY * sin) + cx
                 val rotY = (localX * sin + localY * cos) + cy
                 
-                val sX = (rotX + sampleOffsetX).roundToInt().coerceIn(0, bufferBitmap.width - 1)
-                val sY = (rotY + sampleOffsetY).roundToInt().coerceIn(0, bufferBitmap.height - 1)
+                val sX = (rotX + sampleOffsetX).roundToInt().coerceIn(0, w - 1)
+                val sY = (rotY + sampleOffsetY).roundToInt().coerceIn(0, h - 1)
                 
                 val pixel = bufferBitmap.getPixel(sX, sY)
                 
@@ -316,7 +300,7 @@ class RenderEngine(
                 data[i * 3 + 2] = (pixel and 0xFF).toByte()
             }
         } else {
-            // 1D Strip Mapping
+             // ... (Strip Logic)
             val length = device.width 
             val step = if (device.pixelCount > 1) length / (device.pixelCount - 1) else 0f
             val startLocalX = -device.width / 2f
@@ -328,14 +312,118 @@ class RenderEngine(
                 val rotX = (localX * cos - localY * sin) + cx
                 val rotY = (localX * sin + localY * cos) + cy
                 
-                val sX = (rotX + sampleOffsetX).roundToInt().coerceIn(0, bufferBitmap.width - 1)
-                val sY = (rotY + sampleOffsetY).roundToInt().coerceIn(0, bufferBitmap.height - 1)
+                val sX = (rotX + sampleOffsetX).roundToInt().coerceIn(0, w - 1)
+                val sY = (rotY + sampleOffsetY).roundToInt().coerceIn(0, h - 1)
                 
                 val pixel = bufferBitmap.getPixel(sX, sY)
                 
                 data[i * 3] = (pixel shr 16 and 0xFF).toByte()
                 data[i * 3 + 1] = (pixel shr 8 and 0xFF).toByte()
                 data[i * 3 + 2] = (pixel and 0xFF).toByte()
+            }
+        }
+    }
+    
+    // RecalculateBounds must ALSO be guarded, but since it is private and called from guarded methods, 
+    // we assume caller holds lock?
+    // NO. `recalculateBounds` was called from `init`?
+    // `init` calls it. `lock` is available.
+    // I should wrap `recalculateBounds` body in synchronized(lock) OR ensure all callers do.
+    // It's safer to wrap callers.
+    // I'll update `recalculateBounds` to NOT lock, but REQUIRE lock.
+    // Actually, `start()` calls `renderFrame` which locks.
+    // `addRegion` calls `recalculateBounds`.
+    // If I put `recalculateBounds` logic inside `addRegion`'s lock block...
+    
+    // Wait, simple replacement:
+    // Make `private fun recalculateBounds()` assume lock is held?
+    // or `synchronized(lock)` inside it?
+    // Re-entrant locks are supported in Java/Kotlin `synchronized`.
+    // So yes, I can put `synchronized(lock)` inside `recalculateBounds` AND in `addRegion`.
+    // Since `addRegion` calls `recalculateBounds` inside its sync block.
+    // Nested synchronized on same object is fine.
+    
+    private fun recalculateBounds() {
+        synchronized(lock) {
+            // Union of Canvas (0,0 -> W,H) and all Devices AND Regions
+            var minX = 0f
+            var minY = 0f
+            var maxX = installation.width
+            var maxY = installation.height
+            
+            // 1. Devices
+            installation.devices.forEach { device ->
+                // Calculate 4 corners of the rotated device
+                val cx = device.x + device.width / 2f
+                val cy = device.y + device.height / 2f
+                val rad = Math.toRadians(device.rotation.toDouble())
+                val cos = Math.cos(rad)
+                val sin = Math.sin(rad)
+                
+                val w2 = device.width / 2f
+                val h2 = device.height / 2f
+                
+                val corners = listOf(
+                    Pair(-w2, -h2), Pair(w2, -h2),
+                    Pair(w2, h2), Pair(-w2, h2)
+                )
+                
+                corners.forEach { (dx, dy) ->
+                    val rx = (dx * cos - dy * sin) + cx
+                    val ry = (dx * sin + dy * cos) + cy
+                    
+                    if (rx < minX) minX = rx.toFloat()
+                    if (ry < minY) minY = ry.toFloat()
+                    if (rx > maxX) maxX = rx.toFloat()
+                    if (ry > maxY) maxY = ry.toFloat()
+                }
+            }
+            
+            // 2. Regions
+            // We are under lock, direct iteration safe
+            activeRegions.forEach { region ->
+                val cx = region.rect.centerX()
+                val cy = region.rect.centerY()
+                val rad = Math.toRadians(region.rotation.toDouble())
+                val cos = Math.cos(rad)
+                val sin = Math.sin(rad)
+                
+                val w2 = region.rect.width() / 2f
+                val h2 = region.rect.height() / 2f
+                
+                val corners = listOf(
+                    Pair(-w2, -h2), Pair(w2, -h2),
+                    Pair(w2, h2), Pair(-w2, h2)
+                )
+                
+                corners.forEach { (dx, dy) ->
+                    val rx = (dx * cos - dy * sin) + cx
+                    val ry = (dx * sin + dy * cos) + cy
+                     
+                    if (rx < minX) minX = rx.toFloat()
+                    if (ry < minY) minY = ry.toFloat()
+                    if (rx > maxX) maxX = rx.toFloat()
+                    if (ry > maxY) maxY = ry.toFloat()
+                }
+            }
+            
+            // Add padding just in case
+            val padding = 100f // Increased padding for safety
+            minX -= padding
+            minY -= padding
+            maxX += padding
+            maxY += padding
+    
+            renderBounds.set(minX, minY, maxX, maxY)
+            renderOriginX = minX
+            renderOriginY = minY
+            
+            val newW = (maxX - minX).toInt().coerceAtLeast(1)
+            val newH = (maxY - minY).toInt().coerceAtLeast(1)
+            
+            if (newW != bufferBitmap.width || newH != bufferBitmap.height) {
+                bufferBitmap = Bitmap.createBitmap(newW, newH, Bitmap.Config.ARGB_8888)
+                canvas = Canvas(bufferBitmap)
             }
         }
     }
@@ -378,4 +466,5 @@ class RenderEngine(
 interface Animation {
     fun draw(canvas: Canvas, width: Float, height: Float)
     fun onTouch(x: Float, y: Float): Boolean { return false }
+    fun destroy() {}
 }
