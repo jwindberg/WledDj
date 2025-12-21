@@ -606,6 +606,7 @@ fun AnimationSelectionSheet(
                     "Blurz",
                     "GEQ",
                     "MusicBall",
+                    "BlackHole",
                     "Flashlight"
                 ).sorted()
                 
