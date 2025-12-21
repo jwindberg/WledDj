@@ -10,8 +10,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -56,10 +58,10 @@ fun PlayerScreen(
     )
 
     val engine by viewModel.engine.collectAsState()
-    // Collect the Frame, not just the Bitmap
     val previewFrame by (engine?.previewFrame ?: MutableStateFlow(null)).collectAsState()
     
     val installation by viewModel.installation.collectAsState()
+    val selectedRegionId by viewModel.selectedRegionId.collectAsState()
     val regions by viewModel.regions.collectAsState()
     
     val dragTool by viewModel.draggedTool.collectAsState()
@@ -68,6 +70,11 @@ fun PlayerScreen(
     val isInteractive by viewModel.isInteractiveMode.collectAsState()
 
     val canvasGeometry = remember { CanvasGeometry() }
+
+    var showSheet by remember { mutableStateOf(false) }
+
+    // Track the offset of the content container (due to Scaffold padding, etc.)
+    var containerOffset by remember { mutableStateOf(Offset.Zero) }
 
     Scaffold(
         topBar = {
@@ -79,24 +86,33 @@ fun PlayerScreen(
                     }
                 },
                 actions = {
-                     // Toggle Interactive Mode
                      IconButton(onClick = { viewModel.toggleInteractiveMode() }) {
                         Icon(
                             if (isInteractive) Icons.Filled.Lock else Icons.Filled.Edit, 
                             "Toggle Mode"
                         )
                     }
-                     IconButton(onClick = { viewModel.clearAnimations() }) {
-                        Icon(Icons.Default.Delete, "Clear All")
+                     IconButton(onClick = { viewModel.deleteSelection() }) {
+                        Icon(Icons.Default.Delete, "Delete Selection")
                     }
                 }
             )
+        },
+        floatingActionButton = {
+            if (!isInteractive && !showSheet) {
+                FloatingActionButton(onClick = { showSheet = true }) {
+                     Icon(Icons.Default.Add, "Add Animation")
+                }
+            }
         }
     ) { padding ->
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .onGloballyPositioned { coordinates ->
+                    containerOffset = coordinates.positionInRoot()
+                }
                 .background(Color.Black)
         ) {
             // ROOT BOX
@@ -111,79 +127,71 @@ fun PlayerScreen(
                              canvasGeometry.viewHeight = coordinates.size.height.toFloat()
                              viewModel.onViewportSizeChanged(canvasGeometry.viewWidth, canvasGeometry.viewHeight)
                         }
+                        .pointerInput(Unit) {
+                            detectTapGestures(onTap = { showSheet = false })
+                        }
                 ) {
                     if (engine != null && installation != null && previewFrame != null) {
                          InteractivePlayerCanvas(
-                             frame = previewFrame!!, // Pass the Frame
+                             frame = previewFrame!!,
                              regions = regions,
                              installation = installation!!,
                              canvasGeometry = canvasGeometry,
                              isInteractive = isInteractive,
+                             selectedRegionId = selectedRegionId, // Pass state
+                             onSelectRegion = { viewModel.selectRegion(it) }, // Pass callback
                              onUpdateRegion = { id, rect, rot -> viewModel.updateRegion(id, rect, rot) },
                              onRemoveRegion = { viewModel.removeRegion(it) },
                              onInteract = { x, y -> 
-                                 // Convert Screen -> Virtual
                                  val virtualPoint = canvasGeometry.screenToVirtualPoint(x, y, installation!!.width, installation!!.height)
                                  if (virtualPoint != null) {
                                      viewModel.handleCanvasTouch(virtualPoint.x, virtualPoint.y)
                                  }
-                             }
+                             },
+                             onInteractionEnd = { viewModel.saveAnimations() }
                          )
-                    } else {
-                        Text("Initializing...", color = Color.White, modifier = Modifier.align(Alignment.Center))
                     }
                 }
                 
-                // 2. TOOLBOX OVERLAY (Floating at Bottom)
-                if (!isInteractive) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 16.dp) // Float slightly up
-                    ) {
-                        AnimationToolbox(
-                            onDragStart = { type, offset -> 
-                                 viewModel.startToolDrag(type, offset)
-                            },
-                            onDrag = { delta -> 
-                                 viewModel.updateToolDrag(delta)
-                            },
-                            onDragEnd = {
+                // 2. BOTTOM SHEET (Custom Implementation)
+                if (showSheet && !isInteractive) {
+                     AnimationSelectionSheet(
+                         modifier = Modifier.align(Alignment.BottomCenter),
+                         onDragStart = { type, globalOffset -> 
+                             // Correct the offset: Global (Root) -> Local (Container)
+                             val localStart = globalOffset - containerOffset
+                             viewModel.startToolDrag(type, localStart)
+                         },
+                         onDrag = { delta -> viewModel.updateToolDrag(delta) }, // Delta is vector, no correction needed
+                         onDragEnd = {
                                 val dropPos = dragPosition
-                                
                                 val width = installation!!.width
                                 val height = installation!!.height
                                 val viewW = canvasGeometry.viewWidth
                                 val viewH = canvasGeometry.viewHeight
                                 val screenCenter = Offset(viewW / 2f, viewH / 2f)
-                                
                                 val sx = viewW / width
                                 val sy = viewH / height
                                 val baseScale = minOf(sx, sy)
-                                
                                 val zoom = installation!!.cameraZoom
                                 val cx = installation!!.cameraX ?: (width / 2f)
                                 val cy = installation!!.cameraY ?: (height / 2f)
                                 val currentScale = baseScale * zoom
                                 
-                                // Proper Inverse Transform:
-                                // Screen = (Virtual - Camera) * Scale + ScreenCenter
-                                // Virtual = (Screen - ScreenCenter) / Scale + Camera
                                 val vx = (dropPos.x - screenCenter.x) / currentScale + cx
                                 val vy = (dropPos.y - screenCenter.y) / currentScale + cy
                                 
-                                if (vx >= -10000 && vx <= 10000) { // Sanity check, virtual space is large
+                                if (vx >= -10000 && vx <= 10000) { 
                                     val type = dragTool ?: "Ball"
                                     viewModel.onToolDropped(type, vx, vy, width, height)
                                 }
                                 viewModel.endToolDrag() 
-                            }
-                        )
-                    }
+                         }
+                     )
                 }
             }
             
-            // DRAG OVERLAY
+            // DRAG OVERLAY (Always on Top)
             if (dragTool != null) {
                 Box(
                      modifier = Modifier
@@ -239,14 +247,20 @@ fun InteractivePlayerCanvas(
     installation: com.example.wleddj.data.model.Installation,
     canvasGeometry: CanvasGeometry,
     isInteractive: Boolean,
+    selectedRegionId: String?,
+    onSelectRegion: (String?) -> Unit,
     onUpdateRegion: (String, android.graphics.RectF, Float) -> Unit,
     onRemoveRegion: (String) -> Unit,
-    onInteract: (Float, Float) -> Unit
+    onInteract: (Float, Float) -> Unit,
+    onInteractionEnd: () -> Unit
 ) {
     // No null check needed really, caller handles it
 
     val currentRegionsState = rememberUpdatedState(regions)
+    val currentSelectedIdState = rememberUpdatedState(selectedRegionId)
     val currentOnUpdateState = rememberUpdatedState(onUpdateRegion)
+    val currentOnSelectState = rememberUpdatedState(onSelectRegion)
+    val currentOnInteractionEnd = rememberUpdatedState(onInteractionEnd)
     
     // Shared Drag State
     val dragState = remember { DragState() }
@@ -286,6 +300,8 @@ fun InteractivePlayerCanvas(
 
                         // 1. HIT TEST
                         val regs = currentRegionsState.value
+                        val selectedId = currentSelectedIdState.value
+                        
                         val virtualPoint = screenToVirtual(down.position.x, down.position.y)
                         val virtX = virtualPoint.x
                         val virtY = virtualPoint.y
@@ -293,6 +309,7 @@ fun InteractivePlayerCanvas(
                         var hitId: String? = null
                         var mode = "MOVE"
                         
+                        // Check Hit
                         for (region in regs.reversed()) {
                              val rect = region.rect
                              val cxR = rect.centerX()
@@ -305,19 +322,33 @@ fun InteractivePlayerCanvas(
                              val rotX = (dx * cos - dy * sin).toFloat() + cxR
                              val rotY = (dx * sin + dy * cos).toFloat() + cyR
                              
+                             // 1. Check Knob (Only if Selected)
                              val handleR = 40f
-                             if (rotX >= rect.right - handleR && rotX <= rect.right + handleR &&
-                                 rotY >= rect.bottom - handleR && rotY <= rect.bottom + handleR) {
-                                 hitId = region.id
-                                 mode = "RESIZE"
-                                 break
+                             if (region.id == selectedId) {
+                                  if (rotX >= rect.right - handleR && rotX <= rect.right + handleR &&
+                                      rotY >= rect.bottom - handleR && rotY <= rect.bottom + handleR) {
+                                      hitId = region.id
+                                      mode = "RESIZE"
+                                      break
+                                  }
                              }
+                             
+                             // 2. Check Body
                              if (rotX >= rect.left && rotX <= rect.right &&
                                  rotY >= rect.top && rotY <= rect.bottom) {
                                  hitId = region.id
                                  mode = "MOVE"
                                  break
                              }
+                        }
+
+                        // Selection Logic
+                        if (hitId != null) {
+                            if (hitId != selectedId) {
+                                currentOnSelectState.value(hitId)
+                            }
+                        } else {
+                            currentOnSelectState.value(null) // Deselect on BG click
                         }
 
                         if (hitId != null) {
@@ -348,6 +379,9 @@ fun InteractivePlayerCanvas(
                                      event.changes.forEach { it.consume() }
                                 }
                             } while (event.changes.any { it.pressed })
+                            
+                            // Loop Ended (Finger Up)
+                            currentOnInteractionEnd.value()
                         }
                      }
                 }
@@ -418,22 +452,25 @@ fun InteractivePlayerCanvas(
              }
              
              regions.forEach { region ->
+                 val isSelected = region.id == selectedRegionId
                  withTransform({
                      rotate(region.rotation, pivot = Offset(region.rect.centerX(), region.rect.centerY()))
                  }) {
                      drawRect(
-                        color = Color.White,
-                        style = Stroke(2f / totalScale),
+                        color = if (isSelected) Color.Yellow else Color.White, // Highlight Selection
+                        style = Stroke(if (isSelected) 4f / totalScale else 2f / totalScale),
                         topLeft = Offset(region.rect.left, region.rect.top),
                         size = Size(region.rect.width(), region.rect.height())
                      )
                      
-                     // Knob
-                     drawCircle(
-                         color = Color.Yellow,
-                         radius = 20f / totalScale,
-                         center = Offset(region.rect.right, region.rect.bottom)
-                     )
+                     // Knob - Only if Selected
+                     if (isSelected) {
+                         drawCircle(
+                             color = Color.Yellow,
+                             radius = 20f / totalScale,
+                             center = Offset(region.rect.right, region.rect.bottom)
+                         )
+                     }
                  }
              }
          }
@@ -447,28 +484,63 @@ fun InteractivePlayerCanvas(
 // I will include the rest of the file content in strict replacement.
 
 @Composable
-fun AnimationToolbox(
+fun AnimationSelectionSheet(
+    modifier: Modifier = Modifier,
     onDragStart: (String, Offset) -> Unit,
     onDrag: (Offset) -> Unit,
     onDragEnd: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .width(300.dp)
-            .height(100.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f), MaterialTheme.shapes.medium)
-            .border(1.dp, Color.White.copy(alpha = 0.3f), MaterialTheme.shapes.medium),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .fillMaxHeight(0.4f), // Take up 40% of screen
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 8.dp,
+        shape = MaterialTheme.shapes.large.copy(bottomStart = androidx.compose.foundation.shape.CornerSize(0.dp), bottomEnd = androidx.compose.foundation.shape.CornerSize(0.dp))
     ) {
-        ToolItem("Ball", onDragStart, onDrag, onDragEnd)
-        ToolItem("Static", onDragStart, onDrag, onDragEnd)
-        ToolItem("Rects", onDragStart, onDrag, onDragEnd)
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Animations",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+            
+            // Grid of Animations
+            // Using LazyVerticalGrid equivalent (or just flow row for now if lazy grid dep not added)
+            // Assuming LazyGrid is available or standard Row/Column for MVP
+            
+            // Note: Standard LazyVerticalGrid requires foundation dependency. Assuming available.
+            // If not, using LazyRow/Column.
+            
+            // Simple Scrolling List
+            androidx.compose.foundation.lazy.LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 16.dp)
+            ) {
+                // Full WLED FX List
+                val animations = listOf(
+                    "Ball", 
+                    "Static", 
+                    "Rects", 
+                    "Fireworks", 
+                    "Aurora Borealis"
+                ).sorted()
+                
+                items(animations.size) { index ->
+                    AnimationListItem(
+                        type = animations[index],
+                        onDragStart = onDragStart,
+                        onDrag = onDrag,
+                        onDragEnd = onDragEnd
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
-fun ToolItem(
+fun AnimationListItem(
     type: String,
     onDragStart: (String, Offset) -> Unit,
     onDrag: (Offset) -> Unit,
@@ -476,31 +548,54 @@ fun ToolItem(
 ) {
     var globalPosition by remember { mutableStateOf(Offset.Zero) }
 
-    Box(
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.small,
         modifier = Modifier
-            .size(80.dp)
-            .background(Color.DarkGray, MaterialTheme.shapes.small)
-            .onGloballyPositioned { coordinates ->
-                 globalPosition = coordinates.positionInRoot()
-            }
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { offset -> 
-                        val start = globalPosition + offset
-                        onDragStart(type, start) 
-                    }, 
-                    onDrag = { change, dragAmount -> 
-                        change.consume()
-                        onDrag(dragAmount) 
-                    },
-                    onDragEnd = { onDragEnd() }
-                )
-            },
-        contentAlignment = Alignment.Center
+            .fillMaxWidth()
+            .height(48.dp) // Compact Row Height
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Default.PlayArrow, null, tint = Color.White)
-            Text(type, color = Color.White)
+        Row(
+            modifier = Modifier.fillMaxSize().padding(start = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = type, 
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            
+            // DRAG HANDLE
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(48.dp) // Large Touch Target
+                    .onGloballyPositioned { coordinates ->
+                        globalPosition = coordinates.positionInRoot()
+                    }
+                    .pointerInput(Unit) {
+                        detectDragGestures(
+                            onDragStart = { offset -> 
+                                val start = globalPosition + offset
+                                onDragStart(type, start) 
+                            }, 
+                            onDrag = { change, dragAmount -> 
+                                change.consume()
+                                onDrag(dragAmount) 
+                            },
+                            onDragEnd = { onDragEnd() }
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Menu, 
+                    contentDescription = "Drag Handle",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
+            }
         }
     }
 }

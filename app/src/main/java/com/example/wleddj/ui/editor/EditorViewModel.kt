@@ -36,7 +36,19 @@ class EditorViewModel(
 
     private fun loadInstallation() {
         viewModelScope.launch {
-            _installation.value = repository.getInstallation(installationId)
+            // Observe the repository flow to keep data fresh (e.g. if Player modified animations)
+            repository.installations.collect { list ->
+                val updated = list.find { it.id == installationId }
+                if (updated != null) {
+                    // Only update if fundamentally different to avoid loop?
+                    // But we rely on this to get new animations list.
+                    // We must be careful not to overwrite local ephemeral state (like dragging) if we had any.
+                    // Editor only drags devices which updates _installation locally immediately.
+                    // Merging logic might be needed if concurrent edits happen.
+                    // For now, simpler: Just take the latest from Repo.
+                    _installation.value = updated
+                }
+            }
         }
     }
 

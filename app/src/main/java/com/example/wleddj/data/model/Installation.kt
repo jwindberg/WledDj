@@ -15,5 +15,17 @@ data class Installation(
     val viewportPanY: Float = 0f,
     val cameraX: Float? = null, // Virtual Center X
     val cameraY: Float? = null, // Virtual Center Y
-    val cameraZoom: Float = 1f  // Multiplier of Base Fit Scale
+    val cameraZoom: Float = 1f,  // Multiplier of Base Fit Scale
+    val animations: List<SavedAnimation> = emptyList()
+)
+
+@Serializable
+data class SavedAnimation(
+    val id: String,
+    val type: String,
+    val rectLeft: Float, 
+    val rectTop: Float, 
+    val rectRight: Float, 
+    val rectBottom: Float,
+    val rotation: Float = 0f
 )

@@ -10,6 +10,7 @@ import com.example.wleddj.engine.animations.BouncingBallAnimation
 import com.example.wleddj.engine.animations.RandomRectsAnimation
 import com.example.wleddj.engine.animations.StationaryBallAnimation
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
@@ -36,6 +37,7 @@ class PlayerViewModel(
             if (loadedInst != null) {
                 _originalInstallation = loadedInst
                 // Initial load with existing bounds (square/default).
+                android.util.Log.d("WledDj", "DEBUG: Loaded ${loadedInst.animations.size} animations")
                 // We will resize correctly once UI reports screen size.
                 // But initially, ensure we don't clip obviously.
                 updateInstallationBounds(loadedInst.width, loadedInst.height)
@@ -54,22 +56,52 @@ class PlayerViewModel(
         // The Camera handles the view.
         
         if (_installation.value != orig) {
-             _installation.value = orig
-             val newEngine = RenderEngine(orig)
-             _engine.value = newEngine
-             newEngine.start()
+             // Rebuild logic
         }
+        
+         _engine.value?.stop()
+         _installation.value = orig
+         val newEngine = RenderEngine(orig)
+         
+         // Restore Animations
+         orig.animations.forEach { saved ->
+             val anim = createAnimation(saved.type)
+             val region = com.example.wleddj.data.model.AnimationRegion(
+                 id = saved.id,
+                 rect = android.graphics.RectF(saved.rectLeft, saved.rectTop, saved.rectRight, saved.rectBottom),
+                 rotation = saved.rotation,
+                 animation = anim
+             )
+             newEngine.addRegion(region)
+         }
+         
+         _engine.value = newEngine
+         newEngine.start()
+         refreshRegions()
     }
     
     // Helper used by loadInstallation if viewport not ready
     private fun updateInstallationBounds(w: Float, h: Float) {
-         // Fallback default
-         // Just load as is
          val orig = _originalInstallation ?: return
+         _engine.value?.stop()
          _installation.value = orig
          val newEngine = RenderEngine(orig)
+         
+         // Restore Animations
+         orig.animations.forEach { saved ->
+             val anim = createAnimation(saved.type)
+             val region = com.example.wleddj.data.model.AnimationRegion(
+                 id = saved.id,
+                 rect = android.graphics.RectF(saved.rectLeft, saved.rectTop, saved.rectRight, saved.rectBottom),
+                 rotation = saved.rotation,
+                 animation = anim
+             )
+             newEngine.addRegion(region)
+         }
+         
          _engine.value = newEngine
          newEngine.start()
+         refreshRegions()
     }
 
     // Regions State
@@ -110,16 +142,20 @@ class PlayerViewModel(
     fun updateRegion(id: String, newRect: android.graphics.RectF, rotation: Float) {
         _engine.value?.updateRegion(id, newRect, rotation)
         refreshRegions()
+        // Removed saveAnimations() to prevent flooding. 
+        // Logic moved to onInteractionEnd in UI.
     }
     
     fun removeRegion(id: String) {
         _engine.value?.removeRegion(id)
         refreshRegions()
+        saveAnimations()
     }
 
     fun clearAnimations() {
         _engine.value?.clearAnimations()
         refreshRegions()
+        saveAnimations()
     }
 
     // Tool Drag State
@@ -143,21 +179,80 @@ class PlayerViewModel(
         _draggedTool.value = null
     }
     
-    fun onToolDropped(type: String, dropX: Float, dropY: Float, installW: Float, installH: Float) {
-        // Calculate sensible initial size
-        // We want it to be viewable. 
-        // 300f is arbitrary. Let's stick to 300f for now as "Phone Screen" scale in virtual units is usually ~1000w.
-        // But if the camera is zoomed way in, 300f might be huge.
-        // If we have access to camera zoom, we could scale it.
-        // For now, let's use a standard size.
-        val size = 300f
-        
-        val animation = when(type) {
-            "Ball" -> com.example.wleddj.engine.animations.BouncingBallAnimation(dropX, dropY, 30f) // Keep internal logic
+    // Selection State
+    private val _selectedRegionId = MutableStateFlow<String?>(null)
+    val selectedRegionId: StateFlow<String?> = _selectedRegionId.asStateFlow()
+
+    fun selectRegion(id: String?) {
+        _selectedRegionId.value = id
+    }
+
+    // Consolidated Delete Action
+    fun deleteSelection() {
+        val selected = _selectedRegionId.value
+        if (selected != null) {
+            removeRegion(selected)
+            _selectedRegionId.value = null
+        }
+    }
+
+    fun createAnimation(type: String, dropX: Float = 0f, dropY: Float = 0f): com.example.wleddj.engine.Animation {
+         return when(type) {
+            "Ball" -> com.example.wleddj.engine.animations.BouncingBallAnimation(dropX, dropY, 30f)
             "Static" -> com.example.wleddj.engine.animations.StationaryBallAnimation()
             "Rects" -> com.example.wleddj.engine.animations.RandomRectsAnimation()
+            "Fireworks" -> com.example.wleddj.engine.animations.FireworksAnimation()
+            "Aurora Borealis" -> com.example.wleddj.engine.animations.AuroraBorealisAnimation()
             else -> com.example.wleddj.engine.animations.BouncingBallAnimation(dropX, dropY, 30f)
         }
+    }
+    
+    // Made Public for UI to call on Drag End
+    fun saveAnimations() {
+        val currentEngine = _engine.value ?: return
+        val currentInst = _installation.value ?: return
+        
+        val regions = currentEngine.getRegions()
+        val savedList = regions.map { region ->
+            val type = when(region.animation) {
+                is com.example.wleddj.engine.animations.BouncingBallAnimation -> "Ball"
+                is com.example.wleddj.engine.animations.StationaryBallAnimation -> "Static"
+                is com.example.wleddj.engine.animations.RandomRectsAnimation -> "Rects"
+                is com.example.wleddj.engine.animations.FireworksAnimation -> "Fireworks"
+                is com.example.wleddj.engine.animations.AuroraBorealisAnimation -> "Aurora Borealis"
+                else -> "Ball"
+            }
+            
+            com.example.wleddj.data.model.SavedAnimation(
+                id = region.id,
+                type = type,
+                rectLeft = region.rect.left,
+                rectTop = region.rect.top,
+                rectRight = region.rect.right,
+                rectBottom = region.rect.bottom,
+                rotation = region.rotation
+            )
+        }
+        
+        val newInst = currentInst.copy(animations = savedList)
+        
+        // UNCONDITIONAL UPDATE of Original to prevent Zombie state
+        _originalInstallation = newInst
+        _installation.value = newInst
+        
+        // Only write to disk if changed (optimization)
+        if (currentInst.animations != savedList) {
+            android.util.Log.d("WledDj", "DEBUG: Saving ${savedList.size} animations")
+            viewModelScope.launch {
+                repository.updateInstallation(newInst)
+            }
+        }
+    }
+
+    fun onToolDropped(type: String, dropX: Float, dropY: Float, installW: Float, installH: Float) {
+        val size = 300f // Default Size
+        
+        val animation = createAnimation(type, dropX, dropY)
         
         // Center the rect on the drop point
         val region = com.example.wleddj.data.model.AnimationRegion(
@@ -166,6 +261,12 @@ class PlayerViewModel(
         )
         _engine.value?.addRegion(region)
         refreshRegions()
+        
+        // Auto-select
+        val regions = _regions.value
+        _selectedRegionId.value = regions.lastOrNull()?.id
+        
+        saveAnimations()
     }
     
     private fun minCode(a: Float, b: Float): Float = if (a < b) a else b
