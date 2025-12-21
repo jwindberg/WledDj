@@ -16,7 +16,7 @@ import kotlin.math.roundToInt
 
 class DeathStarAnimation(private val context: Context) : Animation {
 
-    private val frames = mutableListOf<Bitmap>()
+    private val frames = java.util.Collections.synchronizedList(mutableListOf<Bitmap>())
     private var isLoading = true
     private var startTime = System.currentTimeMillis()
     private val paint = Paint().apply { isFilterBitmap = true } // Smooth scaling
@@ -82,9 +82,40 @@ class DeathStarAnimation(private val context: Context) : Animation {
         }
     }
 
+    // Playback Logic Helper
+    
     override fun draw(canvas: Canvas, width: Float, height: Float) {
-        if (isLoading) {
-            // Loading Indicator
+        // Just sync access.
+        
+        var frameToDraw: Bitmap? = null
+        var loadedCount = 0
+        
+        synchronized(frames) {
+            loadedCount = frames.size
+            if (loadedCount > 0) {
+                 // Playback Logic
+                val frameDurationMs = (1000 / TARGET_FPS)
+                val elapsed = System.currentTimeMillis() - startTime
+                
+                var frameIndex = (elapsed / frameDurationMs).toInt()
+                
+                if (isLoading) {
+                    // While loading, if we catch up to end, wait.
+                    if (frameIndex >= loadedCount) {
+                        frameIndex = loadedCount - 1
+                        // Optional: Show "Buffering" if stalled?
+                    }
+                } else {
+                    // Loop when done
+                    frameIndex %= loadedCount
+                }
+                
+                frameToDraw = frames.getOrNull(frameIndex) ?: frames.last()
+            }
+        }
+
+        if (frameToDraw == null) {
+            // Still 0 frames
             paint.color = Color.GRAY
             paint.textSize = 30f
             paint.textAlign = Paint.Align.CENTER
@@ -92,24 +123,11 @@ class DeathStarAnimation(private val context: Context) : Animation {
             return
         }
 
-        if (frames.isEmpty()) {
-            paint.color = Color.RED
-            canvas.drawText("Load Failed", width/2, height/2, paint)
-            return
-        }
-
-        // Playback
-        val elapsed = System.currentTimeMillis() - startTime
-        val totalDuration = (frames.size * (1000 / TARGET_FPS))
-        val loopTime = elapsed % totalDuration
-        
-        val frameIndex = ((loopTime.toFloat() / totalDuration) * frames.size).toInt()
-        val frame = frames.getOrNull(frameIndex) ?: frames.first()
-
+        // Draw Frame
         // scaling logic: Fit Center
+        val frame = frameToDraw!!
         val src = Rect(0, 0, frame.width, frame.height)
         
-        // Calculate aspect ratio fit
         val videoRatio = frame.width.toFloat() / frame.height
         val canvasRatio = width / height
         
@@ -117,10 +135,8 @@ class DeathStarAnimation(private val context: Context) : Animation {
         var dstH = height
         
         if (videoRatio > canvasRatio) {
-            // Video is wider -> Fit width
             dstH = width / videoRatio
         } else {
-            // Video is taller -> Fit height
             dstW = height * videoRatio
         }
         
@@ -135,5 +151,11 @@ class DeathStarAnimation(private val context: Context) : Animation {
         )
         
         canvas.drawBitmap(frame, null, dst, paint)
+        
+        if (isLoading) {
+             // Small loading indicator
+             paint.color = Color.YELLOW
+             canvas.drawCircle(20f, 20f, 5f, paint)
+        }
     }
 }
