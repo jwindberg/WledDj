@@ -170,7 +170,7 @@ fun PlayerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .fillMaxSize()
-                .padding(bottom = padding.calculateBottomPadding()) // Ignore Top Padding to draw behind status bar
+                .padding(padding) // Respect TopBar padding to match Editor layout
                 .onGloballyPositioned { coordinates ->
                     containerOffset = coordinates.positionInRoot()
                 }
