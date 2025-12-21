@@ -56,7 +56,7 @@ fun PlayerScreen(
     val context = LocalContext.current
     val repository = remember { com.marsraver.wleddj.data.repository.RepositoryProvider.getRepository(context) }
     val viewModel: PlayerViewModel = viewModel(
-        factory = PlayerViewModel.Factory(installationId, repository)
+        factory = PlayerViewModel.Factory(context.applicationContext as android.app.Application, installationId, repository)
     )
 
     // Permission Request
@@ -606,6 +606,7 @@ fun AnimationSelectionSheet(
                     "Blurz",
                     "GEQ",
                     "MusicBall",
+                    "DeathStarRun",
                     "Flashlight"
                 ).sorted()
                 

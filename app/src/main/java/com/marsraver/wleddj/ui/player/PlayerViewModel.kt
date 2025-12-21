@@ -1,6 +1,8 @@
 package com.marsraver.wleddj.ui.player
 
+import android.app.Application
 import android.content.Context
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -15,9 +17,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class PlayerViewModel(
+    application: Application,
     private val installationId: String,
     private val repository: InstallationRepository
-) : ViewModel() {
+) : AndroidViewModel(application) {
 
     private val _engine = MutableStateFlow<RenderEngine?>(null)
     val engine = _engine.asStateFlow()
@@ -207,6 +210,7 @@ class PlayerViewModel(
             "GEQ" -> com.marsraver.wleddj.engine.animations.GeqAnimation()
             "MusicBall" -> com.marsraver.wleddj.engine.animations.MusicBallAnimation()
             "Flashlight" -> com.marsraver.wleddj.engine.animations.FlashlightAnimation()
+            "DeathStarRun" -> com.marsraver.wleddj.engine.animations.DeathStarAnimation(getApplication())
             else -> com.marsraver.wleddj.engine.animations.BouncingBallAnimation(dropX, dropY, 30f)
         }
     }
@@ -228,6 +232,7 @@ class PlayerViewModel(
                 is com.marsraver.wleddj.engine.animations.GeqAnimation -> "GEQ"
                 is com.marsraver.wleddj.engine.animations.FlashlightAnimation -> "Flashlight"
                 is com.marsraver.wleddj.engine.animations.MusicBallAnimation -> "MusicBall"
+                is com.marsraver.wleddj.engine.animations.DeathStarAnimation -> "DeathStarRun"
                 else -> "Ball"
             }
             
@@ -300,12 +305,13 @@ class PlayerViewModel(
     }
 
     class Factory(
+        private val application: Application,
         private val installationId: String,
         private val repository: InstallationRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return PlayerViewModel(installationId, repository) as T
+            return PlayerViewModel(application, installationId, repository) as T
         }
     }
 }
