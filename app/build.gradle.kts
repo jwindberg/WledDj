@@ -6,13 +6,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.wleddj"
+    namespace = "com.marsraver.wleddj"
     compileSdk {
         version = release(36)
     }
 
     defaultConfig {
-        applicationId = "com.example.wleddj"
+        applicationId = "com.marsraver.wleddj"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
