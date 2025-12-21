@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -45,7 +46,7 @@ fun LayoutEditorScreen(
     }
 
     val context = LocalContext.current
-    val repository = remember { FileInstallationRepository(context) } // Should be injected
+    val repository = com.example.wleddj.data.repository.RepositoryProvider.getRepository(context)
     val viewModel: EditorViewModel = viewModel(
         factory = EditorViewModel.Factory(installationId, repository, context)
     )
@@ -60,6 +61,12 @@ fun LayoutEditorScreen(
         installation?.devices?.find { it.ip == selectedDeviceIp }
     }
 
+    // Intercept System Back to Save
+    androidx.activity.compose.BackHandler {
+        viewModel.saveProject()
+        onBack()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -72,7 +79,10 @@ fun LayoutEditorScreen(
                     Text(title)
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = {
+                        viewModel.saveProject()
+                        onBack()
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
@@ -85,7 +95,10 @@ fun LayoutEditorScreen(
                             Icon(Icons.Default.Delete, "Delete Device")
                         }
                     }
-                    IconButton(onClick = onPlay) {
+                    IconButton(onClick = {
+                        viewModel.saveProject()
+                        onPlay()
+                    }) {
                         Icon(Icons.Default.PlayArrow, "Play Mode")
                     }
                 }
@@ -110,7 +123,11 @@ fun LayoutEditorScreen(
                     onSelectDevice = { selectedDeviceIp = it?.ip },
                     onMoveDevice = { device, newX, newY, w, h, rot ->
                         viewModel.updateDevice(device.ip, newX, newY, w, h, rot)
-                    }
+                    },
+                    onUpdateViewport = { z, offset ->
+                        viewModel.updateCamera(offset.x, offset.y, z)
+                    },
+                    onInteractionEnd = { viewModel.saveProject() }
                 )
             }
         }
@@ -148,209 +165,179 @@ fun LayoutCanvas(
     installation: com.example.wleddj.data.model.Installation,
     selectedDevice: WledDevice?,
     onSelectDevice: (WledDevice?) -> Unit,
-    onMoveDevice: (WledDevice, Float, Float, Float, Float, Float) -> Unit // device, x, y, w, h, rot
+    onMoveDevice: (WledDevice, Float, Float, Float, Float, Float) -> Unit,
+    onUpdateViewport: (Float, Offset) -> Unit,
+    onInteractionEnd: () -> Unit
 ) {
-    // Current state references for the gesture detector (use State object directly)
     val currentInstallationState = rememberUpdatedState(installation)
     val currentSelectedDeviceState = rememberUpdatedState(selectedDevice)
     val currentOnSelectDeviceState = rememberUpdatedState(onSelectDevice)
     val currentOnMoveDeviceState = rememberUpdatedState(onMoveDevice)
+    val currentOnUpdateViewportState = rememberUpdatedState(onUpdateViewport)
+    val currentOnInteractionEndState = rememberUpdatedState(onInteractionEnd)
+
+    // Camera State (Virtual Coordinates)
+    // Default to Center if null (1000x1000 -> 500,500)
+    val defaultCx = installation.width / 2f
+    val defaultCy = installation.height / 2f
+    
+    var zoom by remember(installation.id) { mutableStateOf(installation.cameraZoom) }
+    var cx by remember(installation.id) { mutableStateOf(installation.cameraX ?: defaultCx) }
+    var cy by remember(installation.id) { mutableStateOf(installation.cameraY ?: defaultCy) }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-    
-    Canvas(
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                // Wrapper to hold local drag state that persists across the gesture event stream
-                class DragState {
-                    var draggedDevice: WledDevice? = null
-                    var startX = 0f
-                    var startY = 0f
-                    var accumulatedDragX = 0f
-                    var accumulatedDragY = 0f
-                }
-                val dragState = DragState()
-                
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        val install = currentInstallationState.value
-                        val canvasWidth = size.width.toFloat()
-                        val canvasHeight = size.height.toFloat()
-                        
-                        // Calculate scale
-                        val scaleX = canvasWidth / install.width
-                        val scaleY = canvasHeight / install.height
-                        val scale = minOf(scaleX, scaleY) 
-                        
-                        val offsetX = (canvasWidth - install.width * scale) / 2f
-                        val offsetY = 0f // Align Top (Match Player)
-                        
-                        val virtualX = (offset.x - offsetX) / scale
-                        val virtualY = (offset.y - offsetY) / scale
-
-                        val hit = install.devices.find { device ->
-                             virtualX >= device.x && virtualX <= device.x + device.width &&
-                             virtualY >= device.y && virtualY <= device.y + device.height
-                        }
-                        
-                        currentOnSelectDeviceState.value(hit)
-                        
-                        // Initialize local drag state
-                        dragState.draggedDevice = hit
-                        if (hit != null) {
-                            dragState.startX = hit.x
-                            dragState.startY = hit.y
-                            dragState.accumulatedDragX = 0f
-                            dragState.accumulatedDragY = 0f
-                        }
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        val device = dragState.draggedDevice
-                        val install = currentInstallationState.value
-
-                        if (device != null) {
-                            val canvasWidth = size.width.toFloat()
-                            val canvasHeight = size.height.toFloat()
-                            val scaleX = canvasWidth / install.width
-                            val scaleY = canvasHeight / install.height
-                            val scale = minOf(scaleX, scaleY) 
-
-                            // Scale the drag amount
-                            val dbX = dragAmount.x / scale
-                            val dbY = dragAmount.y / scale
-                            
-                            // Accumulate locally - this is the source of truth for the drag session
-                            dragState.accumulatedDragX += dbX
-                            dragState.accumulatedDragY += dbY
-
-                            // Calculate target position based on LOCAL start + LOCAL accumulator
-                            // This completely ignores the VM's current 'device.x' which might be lagging
-                            var newX = dragState.startX + dragState.accumulatedDragX
-                            var newY = dragState.startY + dragState.accumulatedDragY
-                            
-                            // Snapping Logic
-                            val snapThreshold = 10f
-                            val otherDevices = install.devices.filter { it.ip != device.ip }
-                            
-                            // Snap X
-                            for (other in otherDevices) {
-                                if (kotlin.math.abs(newX - other.x) < snapThreshold) newX = other.x
-                                if (kotlin.math.abs(newX + device.width - (other.x + other.width)) < snapThreshold) newX = other.x + other.width - device.width
-                                if (kotlin.math.abs(newX - (other.x + other.width)) < snapThreshold) newX = other.x + other.width
-                                if (kotlin.math.abs(newX + device.width - other.x) < snapThreshold) newX = other.x - device.width
-                            }
-                            if (kotlin.math.abs(newX) < snapThreshold) newX = 0f
-                            
-                            // Snap Y
-                            for (other in otherDevices) {
-                                if (kotlin.math.abs(newY - other.y) < snapThreshold) newY = other.y
-                                if (kotlin.math.abs(newY + device.height - (other.y + other.height)) < snapThreshold) newY = other.y + other.height - device.height
-                                if (kotlin.math.abs(newY - (other.y + other.height)) < snapThreshold) newY = other.y + other.height
-                                if (kotlin.math.abs(newY + device.height - other.y) < snapThreshold) newY = other.y - device.height
-                            }
-                            if (kotlin.math.abs(newY) < snapThreshold) newY = 0f
-                            
-                            // Calculate offsets to determine screen boundaries in virtual space
-                            val offsetX = (canvasWidth - install.width * scale) / 2f
-                            val offsetY = 0f // Align Top (Match Player)
-                            
-                            // Visual Boundaries (Virtual Coordinates at Screen Edges)
-                            // Top Edge of Screen (y=0) -> Virtual Y = (0 - offsetY) / scale
-                            // Bottom Edge of Screen (y=H) -> Virtual Y = (H - offsetY) / scale
-                            
-                            val minVisX = -offsetX / scale
-                            val minVisY = -offsetY / scale
-                            val maxVisX = (canvasWidth - offsetX) / scale
-                            val maxVisY = (canvasHeight - offsetY) / scale
-                            
-                            // Constraint Logic: Keep inside PHYSICAL SCREEN bounds
-                            // This allows dragging into the "black bars" (negative coords or > 1000)
-                            // which solves the "Top Fourth" dead zone issue.
-                            
-                            newX = newX.coerceIn(minVisX, maxVisX - device.width)
-                            newY = newY.coerceIn(minVisY, maxVisY - device.height)
-
-                            // Send absolute position
-                            currentOnMoveDeviceState.value(
-                                device,
-                                newX,
-                                newY,
-                                device.width,
-                                device.height,
-                                device.rotation
-                            )
-                        }
-                    }
-                )
-            }
-    ) {
+        val screenWidth = constraints.maxWidth.toFloat()
+        val screenHeight = constraints.maxHeight.toFloat()
+        val screenCenter = Offset(screenWidth / 2f, screenHeight / 2f)
+        
+        // Base Scale (100% Fit based on Width/Height)
         val install = installation
-        val width = install.width
-        val height = install.height
-        
-        // Calculate scale (Fit Center)
-        val scaleX = size.width / width
-        val scaleY = size.height / height
-        val scale = minOf(scaleX, scaleY) // 100% fit
-        
-        val offsetX = (size.width - width * scale) / 2f
-        val offsetY = 0f // Align Top (Match Player)
-        
-        // Apply Transform
-        withTransform({
-            translate(left = offsetX, top = offsetY)
-            scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
-        }) {
-            // Draw Devices
-            install.devices.forEach { device ->
-                val isSelected = device == selectedDevice
-                
-                // Body
-                drawRect(
-                    color = if (isSelected) Color(0xFF4CAF50).copy(alpha = 0.7f) else Color(0xFF2196F3).copy(alpha = 0.5f),
-                    topLeft = Offset(device.x, device.y),
-                    size = Size(device.width, device.height)
-                )
-                
-                // Outline
-                drawRect(
-                    color = if (isSelected) Color.Yellow else Color.White,
-                    style = Stroke(width = (if (isSelected) 4f else 2f) / scale),
-                    topLeft = Offset(device.x, device.y),
-                    size = Size(device.width, device.height)
-                )
+        val baseScale = remember(install.width, install.height, screenWidth, screenHeight) {
+            val sx = screenWidth / install.width
+            val sy = screenHeight / install.height
+            minOf(sx, sy)
+        }
 
-                // Handles
-                if (isSelected) {
-                    val handleRadius = 8f / scale
-                    val handleColor = Color.Yellow
-                    drawCircle(handleColor, handleRadius, Offset(device.x, device.y))
-                    drawCircle(handleColor, handleRadius, Offset(device.x + device.width, device.y))
-                    drawCircle(handleColor, handleRadius, Offset(device.x, device.y + device.height))
-                    drawCircle(handleColor, handleRadius, Offset(device.x + device.width, device.y + device.height))
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                     awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        
+                        // Transform Helper
+                        // Screen = (Virtual - Cam) * Scale + ScreenCenter
+                        val currentScale = baseScale * zoom
+                        
+                        fun screenToVirtual(sx: Float, sy: Float): Offset {
+                            val vx = (sx - screenCenter.x) / currentScale + cx
+                            val vy = (sy - screenCenter.y) / currentScale + cy
+                            return Offset(vx, vy)
+                        }
+                        
+                        // 1. HIT TEST
+                        val virtualPoint = screenToVirtual(down.position.x, down.position.y)
+                        val installDevices = currentInstallationState.value.devices
+                        val hitDevice = installDevices.find { device ->
+                             virtualPoint.x >= device.x && virtualPoint.x <= device.x + device.width &&
+                             virtualPoint.y >= device.y && virtualPoint.y <= device.y + device.height
+                        }
+                        
+                        currentOnSelectDeviceState.value(hitDevice)
+                        
+                        if (hitDevice != null) {
+                            // DEVICE DRAG
+                            var dragX = hitDevice.x
+                            var dragY = hitDevice.y
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                if (event.changes.any { it.isConsumed }) break
+                                val panChange = event.calculatePan()
+                                if (panChange != Offset.Zero) {
+                                     val dx = panChange.x / currentScale
+                                     val dy = panChange.y / currentScale
+                                     dragX += dx
+                                     dragY += dy
+                                     currentOnMoveDeviceState.value(hitDevice, dragX, dragY, hitDevice.width, hitDevice.height, hitDevice.rotation)
+                                     event.changes.forEach { it.consume() }
+                                }
+                                if (!event.changes.any { it.pressed }) {
+                                    currentOnInteractionEndState.value()
+                                    break
+                                }
+                            }
+                        } else {
+                            // CAMERA PAN/ZOOM
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                if (event.changes.any { it.isConsumed }) break
+                                
+                                val zoomChange = event.calculateZoom()
+                                val panChange = event.calculatePan()
+                                val centroid = event.calculateCentroid(useCurrent = true)
+                                
+                                if (zoomChange != 1f || panChange != Offset.Zero) {
+                                     // 1. Update Zoom
+                                     val oldZoom = zoom
+                                     zoom *= zoomChange
+                                     zoom = zoom.coerceIn(0.1f, 20f)
+                                     
+                                     // 2. Update Camera Position (Pan)
+                                     // Standard: Dragging screen px moves camera inverse.
+                                     // cx -= dx / scale
+                                     val effectiveScale = baseScale * zoom
+                                     cx -= panChange.x / effectiveScale
+                                     cy -= panChange.y / effectiveScale
+                                     
+                                     // 3. Zoom Around Centroid
+                                     if (zoomChange != 1f) {
+                                         val offX = centroid.x - screenCenter.x
+                                         val offY = centroid.y - screenCenter.y
+                                         val oldS = baseScale * oldZoom
+                                         val newS = baseScale * zoom
+                                         // Shift camera to keep point under centroid stable
+                                         val shiftX = offX * (1/oldS - 1/newS)
+                                         val shiftY = offY * (1/oldS - 1/newS)
+                                         cx -= shiftX
+                                         cy -= shiftY
+                                     }
+                                     
+                                     currentOnUpdateViewportState.value(zoom, Offset(cx, cy))
+                                     event.changes.forEach { it.consume() }
+                                }
+                                
+                                if (!event.changes.any { it.pressed }) {
+                                    currentOnInteractionEndState.value()
+                                    break
+                                }
+                            }
+                        }
+                     }
                 }
-                
-                // Pixel dots
-                val dotsX = 10 
-                val dotsY = (dotsX * (device.height / device.width)).roundToInt().coerceAtLeast(1)
-                val stepX = device.width / dotsX
-                val stepY = device.height / dotsY
-                
-                for(i in 0 until dotsX) {
-                    for(j in 0 until dotsY) {
-                         drawCircle(
-                             color = Color.White.copy(alpha = 0.3f),
-                             radius = 2f / scale,
-                             center = Offset(device.x + stepX * i + stepX/2, device.y + stepY * j + stepY/2)
-                         )
-                    }
+        ) {
+            // DRAW
+            val totalScale = baseScale * zoom
+            // Transform:
+            // 1. Translate ScreenCenter
+            // 2. Scale
+            // 3. Translate -Cam
+            
+            withTransform({
+                translate(left = screenCenter.x, top = screenCenter.y)
+                scale(totalScale, totalScale, pivot = Offset.Zero)
+                translate(left = -cx, top = -cy)
+            }) {
+                // Draw Devices
+                installation.devices.forEach { device ->
+                    val isSelected = device == selectedDevice
+                    drawRect(
+                        color = if (isSelected) Color(0xFF4CAF50).copy(alpha = 0.7f) else Color(0xFF2196F3).copy(alpha = 0.5f),
+                        topLeft = Offset(device.x, device.y),
+                        size = Size(device.width, device.height)
+                    )
+                     drawRect(
+                        color = if (isSelected) Color.Yellow else Color.White,
+                        style = Stroke(width = (if (isSelected) 4f else 2f) / totalScale),
+                        topLeft = Offset(device.x, device.y),
+                        size = Size(device.width, device.height)
+                     )
+                     val dotsX = 10 
+                     val dotsY = (dotsX * (device.height / device.width)).roundToInt().coerceAtLeast(1)
+                     val stepX = device.width / dotsX
+                     val stepY = device.height / dotsY
+                     for(i in 0 until dotsX) {
+                        for(j in 0 until dotsY) {
+                             drawCircle(
+                                 color = Color.White.copy(alpha = 0.3f),
+                                 radius = 2f / totalScale,
+                                 center = Offset(device.x + stepX * i + stepX/2, device.y + stepY * j + stepY/2)
+                             )
+                        }
+                     }
                 }
             }
         }
     }
-  } // End BoxWithConstraints
 }
 
 @Composable

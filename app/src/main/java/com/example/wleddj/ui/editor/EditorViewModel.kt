@@ -145,8 +145,25 @@ class EditorViewModel(
         }
         val updated = current.copy(devices = updatedDevices)
         _installation.value = updated
+        // Do NOT save to repository here. Use saveProject() explicitly on drag end.
+    }
+
+    fun updateViewport(zoom: Float, panX: Float, panY: Float) {
+        // Deprecated
+    }
+
+    fun updateCamera(cx: Float, cy: Float, zoom: Float) {
+         val current = _installation.value ?: return
+         val updated = current.copy(cameraX = cx, cameraY = cy, cameraZoom = zoom)
+         _installation.value = updated
+    }
+
+    fun saveProject() {
+        val current = _installation.value ?: return
+        android.util.Log.d("EditorViewModel", "Saving Project: Cam=${current.cameraX},${current.cameraY} Z=${current.cameraZoom}")
         viewModelScope.launch {
-            repository.updateInstallation(updated)
+            repository.updateInstallation(current)
+            android.util.Log.d("EditorViewModel", "Save Complete")
         }
     }
 

@@ -44,79 +44,18 @@ class PlayerViewModel(
     }
     
     // Called by UI when screen size is known
+    // Called by UI when screen size is known
     fun onViewportSizeChanged(viewW: Float, viewH: Float) {
         val orig = _originalInstallation ?: return
         
-        // Target Aspect Ratio
-        val screenRatio = if (viewW > 0) viewH / viewW else 2.0f
+        // DISABLE AUTOMATIC SHIFTING/RESIZING
+        // We want WYSIWYG from the Editor.
+        // If the user placed devices at specific coordinates, we keep them there.
+        // The Camera handles the view.
         
-        // 1. Determine Bounds of Content
-        var minX = 0f
-        var minY = 0f
-        var maxX = orig.width
-        var maxY = orig.height
-        
-        orig.devices.forEach { d ->
-            if (d.x < minX) minX = d.x
-            if (d.y < minY) minY = d.y
-            if (d.x + d.width > maxX) maxX = d.x + d.width
-            if (d.y + d.height > maxY) maxY = d.y + d.height
-        }
-        
-        // 2. Normalize Coordinates (Shift Negative ONLY)
-        // We only shift if content is Out of Bounds (Negative).
-        // If content is at +200, we PRESERVE that margin (User Intent).
-        // We also ensure Width is at least Original Width (1000) to prevent usage-based zooming.
-        
-        val normalizeX = if (minX < 0f) -minX else 0f
-        val normalizeY = if (minY < 0f) -minY else 0f
-        
-        // Calculate Content Dimensions
-        // We need enough width to hold the Rightmost Point (maxX + shift).
-        // AND we default to at least orig.width (1000) to keep scale consistent (1 Unit = 1/1000 Screen).
-        
-        val neededW = maxX + normalizeX
-        val contentW = maxCode(neededW, orig.width)
-        val contentH = maxY + normalizeY
-        
-        // 3. Aspect Ratio Padding
-        // We want finalW to cover content.
-        // We want finalH to cover content AND satisfy aspect ratio.
-        
-        var finalW = contentW
-        var finalH = contentW * screenRatio
-        
-        // If aspect fit is too short for content, expand height
-        if (contentH > finalH) {
-             finalH = contentH
-             // If we expanded height, do we need to expand width to keep ratio?
-             // Usually no, we accept scrolling or "Zoom Out" (Letterboxing on sides).
-             // But let's stick to width-based scale.
-        }
-        
-        // 4. Centering Logic (Vertical) - REMOVED
-        // User prefers WYSIWYG from top-left. Centering introduces "spacers" that shift 
-        // top-aligned devices down. We just anchor to 0,0 (after normalization).
-        
-        // Total Shift = Normalize Only
-        val totalShiftX = normalizeX
-        val totalShiftY = normalizeY
-        
-        // 5. Apply Shift to Devices
-        val shiftedDevices = orig.devices.map { d ->
-            d.copy(x = d.x + totalShiftX, y = d.y + totalShiftY)
-        }
-        
-        val runtimeInst = orig.copy(
-             width = finalW + 1f, // +1 buffer
-             height = finalH + 1f,
-             devices = shiftedDevices
-        )
-        
-        // Update State
-        if (_installation.value != runtimeInst) {
-             _installation.value = runtimeInst
-             val newEngine = RenderEngine(runtimeInst)
+        if (_installation.value != orig) {
+             _installation.value = orig
+             val newEngine = RenderEngine(orig)
              _engine.value = newEngine
              newEngine.start()
         }
@@ -205,16 +144,24 @@ class PlayerViewModel(
     }
     
     fun onToolDropped(type: String, dropX: Float, dropY: Float, installW: Float, installH: Float) {
+        // Calculate sensible initial size
+        // We want it to be viewable. 
+        // 300f is arbitrary. Let's stick to 300f for now as "Phone Screen" scale in virtual units is usually ~1000w.
+        // But if the camera is zoomed way in, 300f might be huge.
+        // If we have access to camera zoom, we could scale it.
+        // For now, let's use a standard size.
+        val size = 300f
+        
         val animation = when(type) {
-            "Ball" -> com.example.wleddj.engine.animations.BouncingBallAnimation(dropX, dropY, 30f)
+            "Ball" -> com.example.wleddj.engine.animations.BouncingBallAnimation(dropX, dropY, 30f) // Keep internal logic
             "Static" -> com.example.wleddj.engine.animations.StationaryBallAnimation()
             "Rects" -> com.example.wleddj.engine.animations.RandomRectsAnimation()
             else -> com.example.wleddj.engine.animations.BouncingBallAnimation(dropX, dropY, 30f)
         }
         
-        // Create a region that covers the entire installation (which is already expanded to fit devices)
+        // Center the rect on the drop point
         val region = com.example.wleddj.data.model.AnimationRegion(
-            rect = android.graphics.RectF(0f, 0f, installW, installH),
+            rect = android.graphics.RectF(dropX - size/2, dropY - size/2, dropX + size/2, dropY + size/2),
             animation = animation
         )
         _engine.value?.addRegion(region)

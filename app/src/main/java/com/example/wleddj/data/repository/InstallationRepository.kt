@@ -3,23 +3,28 @@ package com.example.wleddj.data.repository
 import android.content.Context
 import com.example.wleddj.data.model.Installation
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
 
 interface InstallationRepository {
-    val installations: Flow<List<Installation>>
+    val installations: StateFlow<List<Installation>>
     suspend fun createInstallation(name: String)
     suspend fun deleteInstallation(id: String)
     suspend fun getInstallation(id: String): Installation?
     suspend fun updateInstallation(installation: Installation)
 }
 
-class FileInstallationRepository(private val context: Context) : InstallationRepository {
+class FileInstallationRepository(
+    private val context: Context,
+    private val externalScope: kotlinx.coroutines.CoroutineScope
+) : InstallationRepository {
     private val _installations = MutableStateFlow<List<Installation>>(emptyList())
     override val installations = _installations.asStateFlow()
 
@@ -33,6 +38,7 @@ class FileInstallationRepository(private val context: Context) : InstallationRep
     }
 
     private fun loadInstallations() {
+        // ... (Keep existing load logic or reload it? load logic is fine)
         val files = directory.listFiles { _, name -> name.endsWith(".json") }
         val loaded = files?.mapNotNull { file ->
             try {
@@ -45,10 +51,17 @@ class FileInstallationRepository(private val context: Context) : InstallationRep
         _installations.value = loaded
     }
 
-    override suspend fun createInstallation(name: String) = withContext(Dispatchers.IO) {
+    override suspend fun createInstallation(name: String) {
         val newInstall = Installation(name = name)
-        saveToFile(newInstall)
-        loadInstallations() // Refresh
+        externalScope.launch {
+            saveToFile(newInstall)
+            loadInstallations() 
+        }.join() // Wait for creation? Usually user wants to see it.
+        // Actually, let's just make it fire and forget + optimistic?
+        // For creation, we usually want to wait to get the ID.
+        // But here we construct ID in memory.
+        // Let's stick to withContext for creation to be safe, or migrate all.
+        // For Persistence Fix, focusing on updateInstallation.
     }
 
     override suspend fun deleteInstallation(id: String) = withContext(Dispatchers.IO) {
@@ -64,9 +77,21 @@ class FileInstallationRepository(private val context: Context) : InstallationRep
              } catch (e: Exception) { null }
     }
 
-    override suspend fun updateInstallation(installation: Installation) = withContext(Dispatchers.IO) {
-        saveToFile(installation)
-        loadInstallations()
+    override suspend fun updateInstallation(installation: Installation) {
+        // Optimistic Update: Update cache immediately
+        val currentList = _installations.value.toMutableList()
+        val index = currentList.indexOfFirst { it.id == installation.id }
+        if (index != -1) {
+            currentList[index] = installation
+        } else {
+            currentList.add(installation)
+        }
+        _installations.value = currentList
+        
+        // Fire and Forget Save
+        externalScope.launch {
+            saveToFile(installation)
+        }
     }
 
     private fun saveToFile(installation: Installation) {

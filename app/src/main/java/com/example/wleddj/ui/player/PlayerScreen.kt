@@ -50,13 +50,15 @@ fun PlayerScreen(
     }
 
     val context = LocalContext.current
-    val repository = remember { FileInstallationRepository(context) }
+    val repository = remember { com.example.wleddj.data.repository.RepositoryProvider.getRepository(context) }
     val viewModel: PlayerViewModel = viewModel(
         factory = PlayerViewModel.Factory(installationId, repository)
     )
 
     val engine by viewModel.engine.collectAsState()
-    val previewBitmap by (engine?.previewBitmap ?: MutableStateFlow(null)).collectAsState()
+    // Collect the Frame, not just the Bitmap
+    val previewFrame by (engine?.previewFrame ?: MutableStateFlow(null)).collectAsState()
+    
     val installation by viewModel.installation.collectAsState()
     val regions by viewModel.regions.collectAsState()
     
@@ -110,9 +112,9 @@ fun PlayerScreen(
                              viewModel.onViewportSizeChanged(canvasGeometry.viewWidth, canvasGeometry.viewHeight)
                         }
                 ) {
-                    if (engine != null && installation != null) {
+                    if (engine != null && installation != null && previewFrame != null) {
                          InteractivePlayerCanvas(
-                             bitmap = previewBitmap,
+                             frame = previewFrame!!, // Pass the Frame
                              regions = regions,
                              installation = installation!!,
                              canvasGeometry = canvasGeometry,
@@ -148,10 +150,31 @@ fun PlayerScreen(
                             },
                             onDragEnd = {
                                 val dropPos = dragPosition
-                                val virtualPoint = canvasGeometry.screenToVirtualPoint(dropPos.x, dropPos.y, installation!!.width, installation!!.height)
-                                if (virtualPoint != null) {
+                                
+                                val width = installation!!.width
+                                val height = installation!!.height
+                                val viewW = canvasGeometry.viewWidth
+                                val viewH = canvasGeometry.viewHeight
+                                val screenCenter = Offset(viewW / 2f, viewH / 2f)
+                                
+                                val sx = viewW / width
+                                val sy = viewH / height
+                                val baseScale = minOf(sx, sy)
+                                
+                                val zoom = installation!!.cameraZoom
+                                val cx = installation!!.cameraX ?: (width / 2f)
+                                val cy = installation!!.cameraY ?: (height / 2f)
+                                val currentScale = baseScale * zoom
+                                
+                                // Proper Inverse Transform:
+                                // Screen = (Virtual - Camera) * Scale + ScreenCenter
+                                // Virtual = (Screen - ScreenCenter) / Scale + Camera
+                                val vx = (dropPos.x - screenCenter.x) / currentScale + cx
+                                val vy = (dropPos.y - screenCenter.y) / currentScale + cy
+                                
+                                if (vx >= -10000 && vx <= 10000) { // Sanity check, virtual space is large
                                     val type = dragTool ?: "Ball"
-                                    viewModel.onToolDropped(type, virtualPoint.x, virtualPoint.y, installation!!.width, installation!!.height)
+                                    viewModel.onToolDropped(type, vx, vy, width, height)
                                 }
                                 viewModel.endToolDrag() 
                             }
@@ -211,7 +234,7 @@ class CanvasGeometry {
 
 @Composable
 fun InteractivePlayerCanvas(
-    bitmap: android.graphics.Bitmap?,
+    frame: com.example.wleddj.engine.RenderEngine.PreviewFrame,
     regions: List<com.example.wleddj.data.model.AnimationRegion>,
     installation: com.example.wleddj.data.model.Installation,
     canvasGeometry: CanvasGeometry,
@@ -220,13 +243,10 @@ fun InteractivePlayerCanvas(
     onRemoveRegion: (String) -> Unit,
     onInteract: (Float, Float) -> Unit
 ) {
-    if (bitmap == null) return
-    
+    // No null check needed really, caller handles it
+
     val currentRegionsState = rememberUpdatedState(regions)
     val currentOnUpdateState = rememberUpdatedState(onUpdateRegion)
-    val currentOnInteract = rememberUpdatedState(onInteract)
-    
-    var globalTouchPosition by remember { mutableStateOf(Offset.Zero) }
     
     // Shared Drag State
     val dragState = remember { DragState() }
@@ -234,166 +254,152 @@ fun InteractivePlayerCanvas(
     Canvas(
         modifier = Modifier
             .fillMaxSize()
-            .onGloballyPositioned { coordinates ->
-                 globalTouchPosition = coordinates.positionInRoot()
-            }
-            // Unified Gesture Detector (Pan, Zoom, Select)
             .pointerInput(isInteractive) {
                 if (!isInteractive) {
-                    val getScaleInfo = {
-                        val width = installation.width
-                        val height = installation.height
-                        val viewW = canvasGeometry.viewWidth
-                        val viewH = canvasGeometry.viewHeight
-                        val scaleX = viewW / width
-                        val scaleY = viewH / height
-                        val scale = minOf(scaleX, scaleY)
-                        val offsetX = (viewW - width * scale) / 2f
-                        val offsetY = (viewH - height * scale) / 2f 
-                        Triple(scale, offsetX, offsetY)
-                    }
-
-                    awaitEachGesture {
+                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         
-                        // 1. HIT TEST (Selection)
-                        val regs = currentRegionsState.value
-                        val (scale, offsetX, offsetY) = getScaleInfo()
-                        val touchX = down.position.x
-                        val touchY = down.position.y
+                        // Geometry (Matches Editor Camera Model)
+                        val viewW = canvasGeometry.viewWidth
+                        val viewH = canvasGeometry.viewHeight
+                        val screenCenter = Offset(viewW / 2f, viewH / 2f)
                         
-                        // Convert touch to virtual space
-                        val virtX = (touchX - offsetX) / scale
-                        val virtY = (touchY - offsetY) / scale
+                        val installW = installation.width
+                        val installH = installation.height
+                        
+                        val sx = viewW / installW
+                        val sy = viewH / installH
+                        val baseScale = minOf(sx, sy)
+
+                        // Camera
+                        val zoom = installation.cameraZoom
+                        val cx = installation.cameraX ?: (installW / 2f)
+                        val cy = installation.cameraY ?: (installH / 2f)
+                        val currentScale = baseScale * zoom
+
+                        // Helper
+                        fun screenToVirtual(touchX: Float, touchY: Float): Offset {
+                            val vx = (touchX - screenCenter.x) / currentScale + cx
+                            val vy = (touchY - screenCenter.y) / currentScale + cy
+                            return Offset(vx, vy)
+                        }
+
+                        // 1. HIT TEST
+                        val regs = currentRegionsState.value
+                        val virtualPoint = screenToVirtual(down.position.x, down.position.y)
+                        val virtX = virtualPoint.x
+                        val virtY = virtualPoint.y
                         
                         var hitId: String? = null
+                        var mode = "MOVE"
                         
-                        // Check handles and body
                         for (region in regs.reversed()) {
-                            val cx = region.rect.centerX()
-                            val cy = region.rect.centerY()
-                            val rad = Math.toRadians(-region.rotation.toDouble())
-                            val cos = Math.cos(rad)
-                            val sin = Math.sin(rad)
-                            val dx = virtX - cx
-                            val dy = virtY - cy
-                            val rotX = (dx * cos - dy * sin).toFloat() + cx
-                            val rotY = (dx * sin + dy * cos).toFloat() + cy
-
-                            // Check Handle (though with Pinch we don't strictly need handle, but good to prioritize)
-                            val handleR = 40f
-                            if (rotX >= region.rect.right - handleR && rotX <= region.rect.right + handleR &&
-                                rotY >= region.rect.bottom - handleR && rotY <= region.rect.bottom + handleR) {
-                                hitId = region.id
-                                break
-                            }
-                            // Check Body
-                            if (rotX >= region.rect.left && rotX <= region.rect.right &&
-                                rotY >= region.rect.top && rotY <= region.rect.bottom) {
-                                hitId = region.id
-                                break
-                            }
+                             val rect = region.rect
+                             val cxR = rect.centerX()
+                             val cyR = rect.centerY()
+                             val rad = Math.toRadians(-region.rotation.toDouble())
+                             val cos = Math.cos(rad)
+                             val sin = Math.sin(rad)
+                             val dx = virtX - cxR
+                             val dy = virtY - cyR
+                             val rotX = (dx * cos - dy * sin).toFloat() + cxR
+                             val rotY = (dx * sin + dy * cos).toFloat() + cyR
+                             
+                             val handleR = 40f
+                             if (rotX >= rect.right - handleR && rotX <= rect.right + handleR &&
+                                 rotY >= rect.bottom - handleR && rotY <= rect.bottom + handleR) {
+                                 hitId = region.id
+                                 mode = "RESIZE"
+                                 break
+                             }
+                             if (rotX >= rect.left && rotX <= rect.right &&
+                                 rotY >= rect.top && rotY <= rect.bottom) {
+                                 hitId = region.id
+                                 mode = "MOVE"
+                                 break
+                             }
                         }
-                        
-                        dragState.targetRegionId = hitId
-                        
-                        // 2. TRANSFORM LOOP
+
                         if (hitId != null) {
-                            var zoom = 1f
-                            var pan = Offset.Zero
-                            var pastTouchValue: Offset? = null
-                            
                             do {
                                 val event = awaitPointerEvent()
                                 val canceled = event.changes.any { it.isConsumed }
                                 if (canceled) break
                                 
-                                val zoomChange = event.calculateZoom()
                                 val panChange = event.calculatePan()
-                                val rotationChange = event.calculateRotation()
+                                // val zoomChange = event.calculateZoom() 
                                 
-                                if (zoomChange != 1f || panChange != Offset.Zero) {
+                                if (panChange != Offset.Zero) {
                                      val region = currentRegionsState.value.find { it.id == hitId }
                                      if (region != null) {
                                          val newRect = android.graphics.RectF(region.rect)
+                                         // Convert Pan Screen -> Virtual
+                                         val dx = panChange.x / currentScale
+                                         val dy = panChange.y / currentScale
                                          
-                                         // Apply Zoom (Pinch)
-                                         if (zoomChange != 1f) {
-                                             val curCx = newRect.centerX()
-                                             val curCy = newRect.centerY()
-                                             val w = newRect.width() * zoomChange
-                                             val h = newRect.height() * zoomChange
-                                             newRect.left = curCx - w/2
-                                             newRect.top = curCy - h/2
-                                             newRect.right = curCx + w/2
-                                             newRect.bottom = curCy + h/2
-                                         }
-                                         
-                                         // Apply Pan
-                                         if (panChange != Offset.Zero) {
-                                             val dx = panChange.x / scale
-                                             val dy = panChange.y / scale
+                                         if (mode == "RESIZE") {
+                                             newRect.right += dx
+                                             newRect.bottom += dy
+                                         } else {
                                              newRect.offset(dx, dy)
                                          }
-                                         
-                                         // Rotation (Disabled)
-                                         val newRotation = region.rotation
-                                         
-                                         currentOnUpdateState.value(hitId, newRect, newRotation)
+                                         currentOnUpdateState.value(hitId, newRect, region.rotation)
                                      }
-                                     
-                                     event.changes.forEach { 
-                                         if (it.position != it.previousPosition) {
-                                             it.consume() 
-                                         }
-                                     }
+                                     event.changes.forEach { it.consume() }
                                 }
                             } while (event.changes.any { it.pressed })
                         }
-                    }
+                     }
                 }
             }
     ) {
          val width = installation.width
          val height = installation.height
-         val scaleX = size.width / width
-         val scaleY = size.height / height
-         val scale = minOf(scaleX, scaleY) 
+         val viewW = size.width
+         val viewH = size.height
+         val screenCenter = Offset(viewW / 2f, viewH / 2f)
          
-         val offsetX = (size.width - width * scale) / 2f
-         val offsetY = (size.height - height * scale) / 2f
+         val sx = viewW / width
+         val sy = viewH / height
+         val baseScale = minOf(sx, sy)
+         
+         val zoom = installation.cameraZoom
+         val cx = installation.cameraX ?: (width / 2f)
+         val cy = installation.cameraY ?: (height / 2f)
+         
+         val totalScale = baseScale * zoom
          
          withTransform({
-             translate(left = offsetX, top = offsetY)
-             scale(scale, scale, pivot = Offset.Zero)
+             translate(left = screenCenter.x, top = screenCenter.y)
+             scale(totalScale, totalScale, pivot = Offset.Zero)
+             translate(left = -cx, top = -cy)
          }) {
+             // Draw Bitmap with Origin OFFSET and NATURAL SIZE
              drawImage(
-                 image = bitmap.asImageBitmap(),
-                 dstSize = IntSize(width.toInt(), height.toInt())
+                 image = frame.bitmap.asImageBitmap(),
+                 topLeft = Offset(frame.originX, frame.originY)
              )
 
              installation.devices.forEach { device ->
-                 val cx = device.x + device.width / 2f
-                 val cy = device.y + device.height / 2f
-                 
-                 val bodyColor = Color(0xFF2196F3).copy(alpha = 0.5f)
-                 val outlineColor = Color.White
+                 val cxD = device.x + device.width / 2f
+                 val cyD = device.y + device.height / 2f
                  
                  withTransform({
-                     rotate(device.rotation, pivot = Offset(cx, cy))
+                     rotate(device.rotation, pivot = Offset(cxD, cyD))
                  }) {
                      drawRect(
-                        color = bodyColor,
+                        color = Color(0xFF2196F3).copy(alpha = 0.5f),
                         topLeft = Offset(device.x, device.y),
                         size = Size(device.width, device.height)
                      )
                      drawRect(
-                        color = outlineColor,
-                        style = Stroke(width = 2f / scale),
+                        color = Color.White,
+                        style = Stroke(width = 2f / totalScale),
                         topLeft = Offset(device.x, device.y),
                         size = Size(device.width, device.height)
                      )
                      
+                     // Dots...
                      val dotsX = 10 
                      val dotsY = (dotsX * (device.height / device.width)).roundToInt().coerceAtLeast(1)
                      val stepX = device.width / dotsX
@@ -403,7 +409,7 @@ fun InteractivePlayerCanvas(
                         for(j in 0 until dotsY) {
                              drawCircle(
                                  color = Color.White.copy(alpha = 0.3f),
-                                 radius = 2f / scale,
+                                 radius = 2f / totalScale,
                                  center = Offset(device.x + stepX * i + stepX/2, device.y + stepY * j + stepY/2)
                              )
                         }
@@ -412,31 +418,33 @@ fun InteractivePlayerCanvas(
              }
              
              regions.forEach { region ->
-                 val borderColor = Color.White 
-                 
                  withTransform({
                      rotate(region.rotation, pivot = Offset(region.rect.centerX(), region.rect.centerY()))
                  }) {
                      drawRect(
-                        color = borderColor,
-                        style = Stroke(2f / scale),
+                        color = Color.White,
+                        style = Stroke(2f / totalScale),
                         topLeft = Offset(region.rect.left, region.rect.top),
                         size = Size(region.rect.width(), region.rect.height())
                      )
                      
-                     if (!isInteractive) {
-                         drawCircle(
-                            color = Color.Yellow,
-                            radius = 20f / scale,
-                            center = Offset(region.rect.right, region.rect.bottom)
-                         )
-                         
-                     }
+                     // Knob
+                     drawCircle(
+                         color = Color.Yellow,
+                         radius = 20f / totalScale,
+                         center = Offset(region.rect.right, region.rect.bottom)
+                     )
                  }
              }
          }
     }
 }
+// ... ToolItem and AnimationToolbox are below, unchanged or need to be preserved if I'm replacing till end of file.
+// The replace range EndLine:588 covers the whole file end.
+// I need to include ToolItem and AnimationToolbox in replacement content or use replacement chunks.
+// MultiReplace is better if I can target just the function.
+// But InteractivePlayerCanvas is large.
+// I will include the rest of the file content in strict replacement.
 
 @Composable
 fun AnimationToolbox(

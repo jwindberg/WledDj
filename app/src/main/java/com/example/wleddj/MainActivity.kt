@@ -23,8 +23,7 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Manual DI for now
-        val repository = FileInstallationRepository(applicationContext)
+        val repository = com.example.wleddj.data.repository.RepositoryProvider.getRepository(applicationContext)
 
         setContent {
             WledDjTheme {
