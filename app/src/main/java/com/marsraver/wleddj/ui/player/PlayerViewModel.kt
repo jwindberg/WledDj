@@ -206,7 +206,6 @@ class PlayerViewModel(
             "Blurz" -> com.marsraver.wleddj.engine.animations.BlurzAnimation()
             "GEQ" -> com.marsraver.wleddj.engine.animations.GeqAnimation()
             "MusicBall" -> com.marsraver.wleddj.engine.animations.MusicBallAnimation()
-            "BlackHole" -> com.marsraver.wleddj.engine.animations.BlackHoleAnimation()
             "Flashlight" -> com.marsraver.wleddj.engine.animations.FlashlightAnimation()
             else -> com.marsraver.wleddj.engine.animations.BouncingBallAnimation(dropX, dropY, 30f)
         }
@@ -229,7 +228,6 @@ class PlayerViewModel(
                 is com.marsraver.wleddj.engine.animations.GeqAnimation -> "GEQ"
                 is com.marsraver.wleddj.engine.animations.FlashlightAnimation -> "Flashlight"
                 is com.marsraver.wleddj.engine.animations.MusicBallAnimation -> "MusicBall"
-                is com.marsraver.wleddj.engine.animations.BlackHoleAnimation -> "BlackHole"
                 else -> "Ball"
             }
             
