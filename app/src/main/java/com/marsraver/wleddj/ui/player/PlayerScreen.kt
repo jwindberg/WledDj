@@ -112,13 +112,10 @@ fun PlayerScreen(
     // Track the offset of the content container (due to Scaffold padding, etc.)
 
 
-    // Wake Lock Logic
-    var isScreenLocked by remember { mutableStateOf(false) }
+    // Wake Lock Logic - Default to ON per user request
+    var isScreenLocked by remember { mutableStateOf(true) }
     
-    // Auto-unlock if leaving performance mode? Not strictly required but good UX.
-    LaunchedEffect(isInteractive) {
-        if (!isInteractive) isScreenLocked = false
-    }
+    // Auto-unlock removed. Screen stays on.
 
     DisposableEffect(isScreenLocked) {
         val window = (context as? android.app.Activity)?.window
@@ -164,6 +161,14 @@ fun PlayerScreen(
                     }
                 },
                 actions = {
+                    // Always allow toggling Wake Lock
+                    val icon = if (isScreenLocked) Icons.Default.Lock else Icons.Default.LockOpen
+                    val desc = if (isScreenLocked) "Unlock Screen" else "Lock Screen"
+                    
+                    IconButton(onClick = { isScreenLocked = !isScreenLocked }) {
+                       Icon(icon, desc, tint = MaterialTheme.colorScheme.onSurface)
+                    }
+
                     if (!isInteractive) {
                         if (selectedRegionId != null) {
                              IconButton(onClick = { viewModel.deleteSelection() }) {
@@ -177,14 +182,6 @@ fun PlayerScreen(
                                 contentDescription = "Enter Performance Mode",
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
-                        }
-                    } else {
-                         // Interactive (Performance) Mode - Lock Logic
-                         val icon = if (isScreenLocked) Icons.Default.Lock else Icons.Default.LockOpen
-                         val desc = if (isScreenLocked) "Unlock Screen" else "Lock Screen"
-                         
-                         IconButton(onClick = { isScreenLocked = !isScreenLocked }) {
-                            Icon(icon, desc, tint = MaterialTheme.colorScheme.onSurface)
                         }
                     }
                 }
@@ -247,7 +244,25 @@ fun PlayerScreen(
                                      viewModel.handleCanvasTouch(virtualPoint.x, virtualPoint.y)
                                  }
                              },
-                             onInteractionEnd = { viewModel.saveAnimations() }
+                             onInteractionEnd = { viewModel.saveAnimations() },
+                             onTransform = { tx, ty, px, py, z, r ->
+                                 val virtualPoint = canvasGeometry.screenToVirtualPoint(
+                                     tx, ty, 
+                                     installation!!.width, 
+                                     installation!!.height,
+                                     installation!!.cameraZoom,
+                                     installation!!.cameraX,
+                                     installation!!.cameraY
+                                 )
+                                 if (virtualPoint != null) {
+                                     val scale = 1f / installation!!.cameraZoom
+                                     viewModel.handleCanvasTransform(
+                                         virtualPoint.x, virtualPoint.y,
+                                         px * scale, py * scale, 
+                                         z, r
+                                     )
+                                 }
+                             }
                          )
                     }
                 }
@@ -333,6 +348,7 @@ fun InteractivePlayerCanvas(
     onUpdateRegion: (String, android.graphics.RectF, Float) -> Unit,
     onRemoveRegion: (String) -> Unit,
     onInteract: (Float, Float) -> Unit,
+    onTransform: (Float, Float, Float, Float, Float, Float) -> Unit,
     onInteractionEnd: () -> Unit
 ) {
     // No null check needed really, caller handles it
@@ -466,25 +482,83 @@ fun InteractivePlayerCanvas(
                         }
                      }
                 } else {
-                    // Performance Mode: Pass raw touch to engine (Flashlight, etc)
-                    // Must convert Local (PointerInput) -> Global (Screen) because onInteract -> screenToVirtualPoint expects Global
+                    // Performance Mode: Use detectTransformGestures for multi-touch (Two-Finger Rotate)
+                    // We must manually forward single-finger pan as "Touch" events for tracking.
+                    // Actually, detectsTransformGestures consumes all pointers.
+                    // We can use it to drive EVERYTHING if we map Pan -> Touch X/Y?
+                    // No, `handleTouch` expects absolute coordinates for dragging.
+                    // `detectTransformGestures` gives relative pan.
+                    
+                    // We need BOTH. 
+                    // `pointerInput` holding `detectTransformGestures` consumes movement.
+                    // `pointerInput` holding `awaitEachGesture` consumes movement.
+                    // Solution: Use TWO `pointerInput` modifiers or a custom detector.
+                    // Since Compose 1.x, `detectTransformGestures` doesn't block other gesture detectors if configured right?
+                    // Actually, let's just use `detectTransformGestures` and manually calculate absolute position for "Touch".
+                    
+                    var currentX = 0f
+                    var currentY = 0f
                     val rootOff = canvasGeometry.rootOffset
                     
                     awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        onInteract(down.position.x + rootOff.x, down.position.y + rootOff.y)
-                        
-                        do {
-                            val event = awaitPointerEvent()
-                            event.changes.forEach { 
-                                if (it.pressed) {
-                                    onInteract(it.position.x + rootOff.x, it.position.y + rootOff.y)
-                                    it.consume()
-                                }
-                            }
-                        } while (event.changes.any { it.pressed })
+                          val down = awaitFirstDown(requireUnconsumed = false)
+                          currentX = down.position.x + rootOff.x
+                          currentY = down.position.y + rootOff.y
+                          
+                          // Initial Touch Down
+                          onInteract(currentX, currentY)
+                          
+                          // We need a loop for ongoing drag + multitouch
+                          // We can't easily mix `detectTransformGestures` inside `awaitEachGesture`.
+                          // Let's rely on `pan` from transform to update `currentX/Y`?
+                          // Yes.
                     }
                 }
+            }
+            // Use a separate pointerInput for Transform (Rotation)
+            .pointerInput(isInteractive) {
+                 if (isInteractive) {
+                     val rootOff = canvasGeometry.rootOffset
+                     // We need to track the centroid for targetX/Y
+                     detectTransformGestures { centroid, pan, zoom, rotation ->
+                         val targetX = centroid.x + rootOff.x
+                         val targetY = centroid.y + rootOff.y
+                         
+                         // Pass everything to engine.
+                         // Pan X/Y are deltas. Rotation is delta degrees.
+                         // We also update "Touch" position for single finger drag logic inside engine?
+                         // If pan != 0, it means movement.
+                         // Let's forward "Touch" updates separately via `onInteract`? 
+                         // No, let's add `onInteractTransform` callback.
+                         
+                         // Wait, `onInteract` (handleTouch) is used by Flashlight/Tron for "Drag".
+                         // `handleTransform` is used by Tron for "Rotate".
+                         // Can we run both?
+                         // Flashlight works on absolute position.
+                         // Tron works on relative delta (now).
+                         
+                         // If we use detectTransformGestures, `pan` is the delta we need for Tron!
+                         // But Flashlight needs absolute. 
+                         // `centroid` IS the absolute position (on screen).
+                         
+                         // So we can pipe `centroid` to `onInteract` (Touch) 
+                         // AND pipe `rotation` to `rect`.
+                         
+                         onInteract(targetX, targetY) // Updates Flashlight, Tron Position tracking
+                         
+                         // And forward Rotation/Pan explicitly if needed
+                         // But wait, `onInteract` (Touch) updates `lastTouchX/Y` in Tron.
+                         // If we trigger `onTransform` with panX/panY, Tron might double count?
+                         // No, `onTransform` calculates rotation from TWO FINGERS.
+                         // `onTouch` calculates rotation from ONE FINGER (Pan).
+                         
+                         // If creating a 2-finger rotation, `pan` is the movement of the centroid.
+                         // That's fine.
+                         
+                         // We add a new callback `onTransform`
+                         onTransform(targetX, targetY, pan.x, pan.y, zoom, rotation)
+                     }
+                 }
             }
     ) {
          val width = installation.width
@@ -614,7 +688,8 @@ fun AnimationSelectionSheet(
                     "MusicBall",
                     "DeathStarRun",
                     "Flashlight",
-                    "Fireflies"
+                    "Fireflies",
+                    "TronRecognizer"
                 ).sorted()
                 
                 items(animations.size) { index ->

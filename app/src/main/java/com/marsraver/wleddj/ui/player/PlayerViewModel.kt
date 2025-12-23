@@ -187,6 +187,7 @@ class PlayerViewModel(
             "DeathStarRun" -> com.marsraver.wleddj.engine.animations.DeathStarAnimation(getApplication())
             "Spectrogram" -> com.marsraver.wleddj.engine.animations.SpectrogramAnimation()
             "Fireflies" -> com.marsraver.wleddj.engine.animations.FirefliesAnimation()
+            "TronRecognizer" -> com.marsraver.wleddj.engine.animations.TronRecognizerAnimation(getApplication())
             else -> com.marsraver.wleddj.engine.animations.BouncingBallAnimation(dropX, dropY, 30f)
         }
     }
@@ -210,6 +211,7 @@ class PlayerViewModel(
                 is com.marsraver.wleddj.engine.animations.MusicBallAnimation -> "MusicBall"
                 is com.marsraver.wleddj.engine.animations.DeathStarAnimation -> "DeathStarRun"
                 is com.marsraver.wleddj.engine.animations.FirefliesAnimation -> "Fireflies"
+                is com.marsraver.wleddj.engine.animations.TronRecognizerAnimation -> "TronRecognizer"
                 else -> "Ball"
             }
             
@@ -273,6 +275,12 @@ class PlayerViewModel(
     fun handleCanvasTouch(x: Float, y: Float) {
         if (_isInteractiveMode.value) {
             _engine.value?.handleTouch(x, y)
+        }
+    }
+    
+    fun handleCanvasTransform(targetX: Float, targetY: Float, panX: Float, panY: Float, zoom: Float, rotation: Float) {
+        if (_isInteractiveMode.value) {
+            _engine.value?.handleTransform(targetX, targetY, panX, panY, zoom, rotation)
         }
     }
 

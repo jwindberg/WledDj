@@ -53,7 +53,7 @@ class FirefliesAnimation : Animation {
     )
     
     // Dark Night Background
-    private val nightColor = Color.rgb(2, 2, 10) // Very Dark Blue
+    private val nightColor = Color.BLACK // Pure Black
 
     override fun draw(canvas: Canvas, width: Float, height: Float) {
         if (!isInitialized) {
@@ -86,12 +86,12 @@ class FirefliesAnimation : Animation {
             // Draw Glow (Outer)
             paint.color = firefly.color
             paint.alpha = (alpha * 0.3f).toInt()
-            val glowRadius = 25f 
+            val glowRadius = 12f 
             canvas.drawCircle(firefly.x, firefly.y, glowRadius, paint)
             
             // Draw Core (Inner)
             paint.alpha = alpha
-            val coreRadius = 6f
+            val coreRadius = 3f
             canvas.drawCircle(firefly.x, firefly.y, coreRadius, paint)
         }
     }

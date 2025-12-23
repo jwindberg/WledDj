@@ -461,10 +461,39 @@ class RenderEngine(
             // Log.e("Engine", "Send failed", e)
         }
     }
+    fun handleTransform(targetX: Float, targetY: Float, panX: Float, panY: Float, zoom: Float, rotation: Float): Boolean {
+        synchronized(lock) {
+            // Forward transform to checking regions
+             for (region in activeRegions.reversed()) {
+                 // Check if target point is in region
+                 val cx = region.rect.centerX()
+                 val cy = region.rect.centerY()
+                 
+                 // Transform target point to local space to check bounds
+                 val dx = targetX - cx
+                 val dy = targetY - cy
+                 val rad = Math.toRadians(-region.rotation.toDouble())
+                 val cos = Math.cos(rad)
+                 val sin = Math.sin(rad)
+                 val rotX = (dx * cos - dy * sin).toFloat() + cx
+                 val rotY = (dx * sin + dy * cos).toFloat() + cy
+                 
+                 if (region.rect.contains(rotX, rotY)) {
+                     // Pass through. Note: Pan is in global SCREEN pixels (or virtual pixels if scaled)
+                     // Rotation is degrees. Zoom is scale factor multiplier.
+                     if (region.animation.onTransform(panX, panY, zoom, rotation)) {
+                         return true
+                     }
+                 }
+             }
+        }
+        return false
+    }
 }
 
 interface Animation {
     fun draw(canvas: Canvas, width: Float, height: Float)
     fun onTouch(x: Float, y: Float): Boolean { return false }
+    fun onTransform(panX: Float, panY: Float, zoom: Float, rotation: Float): Boolean { return false }
     fun destroy() {}
 }
