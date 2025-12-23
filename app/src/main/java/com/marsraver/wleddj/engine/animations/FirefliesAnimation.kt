@@ -53,7 +53,7 @@ class FirefliesAnimation : Animation {
     )
     
     // Dark Night Background
-    private val nightColor = Color.rgb(0, 0, 15) // Deep Blue/Black
+    private val nightColor = Color.rgb(2, 2, 10) // Very Dark Blue
 
     override fun draw(canvas: Canvas, width: Float, height: Float) {
         if (!isInitialized) {
