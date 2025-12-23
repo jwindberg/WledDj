@@ -613,7 +613,8 @@ fun AnimationSelectionSheet(
                     "GEQ",
                     "MusicBall",
                     "DeathStarRun",
-                    "Flashlight"
+                    "Flashlight",
+                    "Fireflies"
                 ).sorted()
                 
                 items(animations.size) { index ->
