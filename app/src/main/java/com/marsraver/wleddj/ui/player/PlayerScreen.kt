@@ -464,15 +464,18 @@ fun InteractivePlayerCanvas(
                      }
                 } else {
                     // Performance Mode: Pass raw touch to engine (Flashlight, etc)
+                    // Must convert Local (PointerInput) -> Global (Screen) because onInteract -> screenToVirtualPoint expects Global
+                    val rootOff = canvasGeometry.rootOffset
+                    
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
-                        onInteract(down.position.x, down.position.y)
+                        onInteract(down.position.x + rootOff.x, down.position.y + rootOff.y)
                         
                         do {
                             val event = awaitPointerEvent()
                             event.changes.forEach { 
                                 if (it.pressed) {
-                                    onInteract(it.position.x, it.position.y)
+                                    onInteract(it.position.x + rootOff.x, it.position.y + rootOff.y)
                                     it.consume()
                                 }
                             }
