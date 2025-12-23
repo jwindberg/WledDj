@@ -204,7 +204,14 @@ fun PlayerScreen(
                              onUpdateRegion = { id, rect, rot -> viewModel.updateRegion(id, rect, rot) },
                              onRemoveRegion = { viewModel.removeRegion(it) },
                              onInteract = { x, y -> 
-                                 val virtualPoint = canvasGeometry.screenToVirtualPoint(x, y, installation!!.width, installation!!.height)
+                                 val virtualPoint = canvasGeometry.screenToVirtualPoint(
+                                     x, y, 
+                                     installation!!.width, 
+                                     installation!!.height,
+                                     installation!!.cameraZoom,
+                                     installation!!.cameraX,
+                                     installation!!.cameraY
+                                 )
                                  if (virtualPoint != null) {
                                      viewModel.handleCanvasTouch(virtualPoint.x, virtualPoint.y)
                                  }
@@ -273,29 +280,39 @@ class CanvasGeometry {
     var viewWidth: Float = 1f
     var viewHeight: Float = 1f
     
-    fun screenToVirtual(screenPos: Offset, installW: Float, installH: Float): android.graphics.RectF? {
-        val pt = screenToVirtualPoint(screenPos.x, screenPos.y, installW, installH) ?: return null
+    // Legacy / Convenience for RectF
+    fun screenToVirtual(screenPos: Offset, installW: Float, installH: Float, zoom: Float = 1f, cx: Float? = null, cy: Float? = null): android.graphics.RectF? {
+        val pt = screenToVirtualPoint(screenPos.x, screenPos.y, installW, installH, zoom, cx, cy) ?: return null
         val size = 300f
         return android.graphics.RectF(pt.x - size/2, pt.y - size/2, pt.x + size/2, pt.y + size/2)
     }
 
-    fun screenToVirtualPoint(screenX: Float, screenY: Float, installW: Float, installH: Float): Offset? {
+    fun screenToVirtualPoint(screenX: Float, screenY: Float, installW: Float, installH: Float, zoom: Float = 1f, cx: Float? = null, cy: Float? = null): Offset? {
         val localX = screenX - rootOffset.x
         val localY = screenY - rootOffset.y
         
+        // Check Bounds of Viewport
         if (localX < 0 || localX > viewWidth || localY < 0 || localY > viewHeight) {
             return null
         }
         
         val scaleX = viewWidth / installW
         val scaleY = viewHeight / installH
-        val scale = minOf(scaleX, scaleY)
+        val baseScale = minOf(scaleX, scaleY)
+        val totalScale = baseScale * zoom
         
-        val offsetX = (viewWidth - installW * scale) / 2f
-        val offsetY = (viewHeight - installH * scale) / 2f
+        val centerX = cx ?: (installW / 2f)
+        val centerY = cy ?: (installH / 2f)
         
-        val virtualX = (localX - offsetX) / scale
-        val virtualY = (localY - offsetY) / scale
+        val screenCenterX = viewWidth / 2f
+        val screenCenterY = viewHeight / 2f
+        
+        // Inverse Transform:
+        // Screen = (Virtual - Center) * Scale + ScreenCenter
+        // Virtual = (Screen - ScreenCenter) / Scale + Center
+        
+        val virtualX = (localX - screenCenterX) / totalScale + centerX
+        val virtualY = (localY - screenCenterY) / totalScale + centerY
         
         return Offset(virtualX, virtualY)
     }
