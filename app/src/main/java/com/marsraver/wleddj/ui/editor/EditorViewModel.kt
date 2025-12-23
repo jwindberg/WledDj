@@ -195,6 +195,17 @@ class EditorViewModel(
         }
     }
 
+    fun rebootAllDevices() {
+        val current = _installation.value ?: return
+        viewModelScope.launch {
+             current.devices.forEach { device ->
+                 launch {
+                     WledApiHelper.rebootDevice(device.ip)
+                 }
+             }
+        }
+    }
+
     // Factory
     class Factory(
         private val installationId: String,

@@ -3,6 +3,7 @@ package com.marsraver.wleddj.ui.player
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.*
@@ -19,6 +20,9 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 // import androidx.compose.material.icons.filled.Edit // Removed unused edit
 import androidx.compose.material3.*
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,6 +62,22 @@ fun PlayerScreen(
     val viewModel: PlayerViewModel = viewModel(
         factory = PlayerViewModel.Factory(context.applicationContext as android.app.Application, installationId, repository)
     )
+    val deviceStatuses by viewModel.deviceStatuses.collectAsState()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) {
+                viewModel.resumeEngine()
+            } else if (event == Lifecycle.Event.ON_STOP) {
+                viewModel.pauseEngine()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     // Permission Request
     val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -81,8 +101,7 @@ fun PlayerScreen(
     val selectedRegionId by viewModel.selectedRegionId.collectAsState()
     val regions by viewModel.regions.collectAsState()
     
-    val dragTool by viewModel.draggedTool.collectAsState()
-    val dragPosition by viewModel.dragPosition.collectAsState()
+
     
     val isInteractive by viewModel.isInteractiveMode.collectAsState()
 
@@ -91,7 +110,7 @@ fun PlayerScreen(
     var showSheet by remember { mutableStateOf(false) }
 
     // Track the offset of the content container (due to Scaffold padding, etc.)
-    var containerOffset by remember { mutableStateOf(Offset.Zero) }
+
 
     // Wake Lock Logic
     var isScreenLocked by remember { mutableStateOf(false) }
@@ -119,7 +138,20 @@ fun PlayerScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(if (isInteractive) "Performance Mode" else "Animation Layout") },
+
+                title = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(if (isInteractive) "Performance Mode" else "Animation Layout")
+                        if (!isInteractive && selectedRegionId != null) {
+                             val animType = installation?.animations?.find { it.id == selectedRegionId }?.type ?: "Unknown"
+                             Text(
+                                 text = animType,
+                                 style = MaterialTheme.typography.bodySmall,
+                                 color = MaterialTheme.colorScheme.onSurfaceVariant
+                             )
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = {
                         if (isInteractive) viewModel.toggleInteractiveMode() else onBack()
@@ -171,9 +203,7 @@ fun PlayerScreen(
                 .fillMaxSize()
                 .fillMaxSize()
                 .padding(padding) // Respect TopBar padding to match Editor layout
-                .onGloballyPositioned { coordinates ->
-                    containerOffset = coordinates.positionInRoot()
-                }
+
                 .background(Color.Black)
         ) {
             // ROOT BOX
@@ -197,6 +227,7 @@ fun PlayerScreen(
                              frame = previewFrame!!,
                              regions = regions,
                              installation = installation!!,
+                             deviceStatuses = deviceStatuses,
                              canvasGeometry = canvasGeometry,
                              isInteractive = isInteractive,
                              selectedRegionId = selectedRegionId, // Pass state
@@ -225,54 +256,25 @@ fun PlayerScreen(
                 if (showSheet && !isInteractive) {
                      AnimationSelectionSheet(
                          modifier = Modifier.align(Alignment.BottomCenter),
-                         onDragStart = { type, globalOffset -> 
-                             // Correct the offset: Global (Root) -> Local (Container)
-                             val localStart = globalOffset - containerOffset
-                             viewModel.startToolDrag(type, localStart)
-                         },
-                         onDrag = { delta -> viewModel.updateToolDrag(delta) }, // Delta is vector, no correction needed
-                         onDragEnd = {
-                                val dropPos = dragPosition
+                         onSelect = { type ->
                                 val width = installation!!.width
                                 val height = installation!!.height
-                                val viewW = canvasGeometry.viewWidth
-                                val viewH = canvasGeometry.viewHeight
-                                val screenCenter = Offset(viewW / 2f, viewH / 2f)
-                                val sx = viewW / width
-                                val sy = viewH / height
-                                val baseScale = minOf(sx, sy)
-                                val zoom = installation!!.cameraZoom
+                                
+                                // Drop at Center of Viewport (Camera Position)
                                 val cx = installation!!.cameraX ?: (width / 2f)
                                 val cy = installation!!.cameraY ?: (height / 2f)
-                                val currentScale = baseScale * zoom
                                 
-                                val vx = (dropPos.x - screenCenter.x) / currentScale + cx
-                                val vy = (dropPos.y - screenCenter.y) / currentScale + cy
-                                
-                                if (vx >= -10000 && vx <= 10000) { 
-                                    val type = dragTool ?: "Ball"
-                                    viewModel.onToolDropped(type, vx, vy, width, height)
-                                }
-                                viewModel.endToolDrag() 
+                                viewModel.onToolDropped(type, cx, cy, width, height)
+                                showSheet = false
                          }
                      )
                 }
             }
             
-            // DRAG OVERLAY (Always on Top)
-            if (dragTool != null) {
-                Box(
-                     modifier = Modifier
-                         .offset { IntOffset(dragPosition.x.roundToInt() - 40.dp.roundToPx(), dragPosition.y.roundToInt() - 40.dp.roundToPx()) }
-                         .size(80.dp)
-                         .background(Color.White.copy(alpha = 0.5f), CircleShape),
-                     contentAlignment = Alignment.Center
-                ) {
-                     Icon(Icons.Default.PlayArrow, null)
-                }
-            }
+            // Drag Overlay Removed
         }
     }
+
 }
 
 class CanvasGeometry {
@@ -323,6 +325,7 @@ fun InteractivePlayerCanvas(
     frame: com.marsraver.wleddj.engine.RenderEngine.PreviewFrame,
     regions: List<com.marsraver.wleddj.data.model.AnimationRegion>,
     installation: com.marsraver.wleddj.data.model.Installation,
+    deviceStatuses: Map<String, Boolean>,
     canvasGeometry: CanvasGeometry,
     isInteractive: Boolean,
     selectedRegionId: String?,
@@ -515,17 +518,19 @@ fun InteractivePlayerCanvas(
                  val cxD = device.x + device.width / 2f
                  val cyD = device.y + device.height / 2f
                  
+                 val isOnline = deviceStatuses[device.ip] ?: true
+
                  withTransform({
                      rotate(device.rotation, pivot = Offset(cxD, cyD))
                  }) {
                      drawRect(
-                        color = Color(0xFF2196F3).copy(alpha = 0.5f),
+                        color = if (isOnline) Color(0xFF2196F3).copy(alpha = 0.5f) else Color.Red.copy(alpha = 0.2f),
                         topLeft = Offset(device.x, device.y),
                         size = Size(device.width, device.height)
                      )
                      drawRect(
-                        color = Color.White,
-                        style = Stroke(width = 2f / totalScale),
+                        color = if (isOnline) Color.White else Color.Red,
+                        style = Stroke(width = if (isOnline) 2f / totalScale else 6f / totalScale),
                         topLeft = Offset(device.x, device.y),
                         size = Size(device.width, device.height)
                      )
@@ -575,52 +580,33 @@ fun InteractivePlayerCanvas(
          }
     }
 }
-// ... ToolItem and AnimationToolbox are below, unchanged or need to be preserved if I'm replacing till end of file.
-// The replace range EndLine:588 covers the whole file end.
-// I need to include ToolItem and AnimationToolbox in replacement content or use replacement chunks.
-// MultiReplace is better if I can target just the function.
-// But InteractivePlayerCanvas is large.
-// I will include the rest of the file content in strict replacement.
-
 @Composable
 fun AnimationSelectionSheet(
     modifier: Modifier = Modifier,
-    onDragStart: (String, Offset) -> Unit,
-    onDrag: (Offset) -> Unit,
-    onDragEnd: () -> Unit
+    onSelect: (String) -> Unit
 ) {
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .fillMaxHeight(0.4f), // Take up 40% of screen
+            .fillMaxHeight(0.4f), 
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 8.dp,
         shape = MaterialTheme.shapes.large.copy(bottomStart = androidx.compose.foundation.shape.CornerSize(0.dp), bottomEnd = androidx.compose.foundation.shape.CornerSize(0.dp))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Animations",
+                text = "Add Animation",
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
             
-            // Grid of Animations
-            // Using LazyVerticalGrid equivalent (or just flow row for now if lazy grid dep not added)
-            // Assuming LazyGrid is available or standard Row/Column for MVP
-            
-            // Note: Standard LazyVerticalGrid requires foundation dependency. Assuming available.
-            // If not, using LazyRow/Column.
-            
-            // Simple Scrolling List
             androidx.compose.foundation.lazy.LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
-                // Full WLED FX List
                 val animations = listOf(
                     "Ball", 
-                    "Static", 
-                    "Rects", 
+                    "Spectrogram",
                     "Fireworks", 
                     "Aurora Borealis",
                     "Blurz",
@@ -633,9 +619,7 @@ fun AnimationSelectionSheet(
                 items(animations.size) { index ->
                     AnimationListItem(
                         type = animations[index],
-                        onDragStart = onDragStart,
-                        onDrag = onDrag,
-                        onDragEnd = onDragEnd
+                        onClick = { onSelect(animations[index]) }
                     )
                 }
             }
@@ -646,21 +630,18 @@ fun AnimationSelectionSheet(
 @Composable
 fun AnimationListItem(
     type: String,
-    onDragStart: (String, Offset) -> Unit,
-    onDrag: (Offset) -> Unit,
-    onDragEnd: () -> Unit
+    onClick: () -> Unit
 ) {
-    var globalPosition by remember { mutableStateOf(Offset.Zero) }
-
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = MaterialTheme.shapes.small,
         modifier = Modifier
             .fillMaxWidth()
-            .height(48.dp) // Compact Row Height
+            .height(48.dp)
+            .clickable(onClick = onClick) 
     ) {
         Row(
-            modifier = Modifier.fillMaxSize().padding(start = 16.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -671,35 +652,8 @@ fun AnimationListItem(
                 modifier = Modifier.weight(1f)
             )
             
-            // DRAG HANDLE
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(48.dp) // Large Touch Target
-                    .onGloballyPositioned { coordinates ->
-                        globalPosition = coordinates.positionInRoot()
-                    }
-                    .pointerInput(Unit) {
-                        detectDragGestures(
-                            onDragStart = { offset -> 
-                                val start = globalPosition + offset
-                                onDragStart(type, start) 
-                            }, 
-                            onDrag = { change, dragAmount -> 
-                                change.consume()
-                                onDrag(dragAmount) 
-                            },
-                            onDragEnd = { onDragEnd() }
-                        )
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.Menu, 
-                    contentDescription = "Drag Handle",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                )
-            }
+
         }
     }
 }
+

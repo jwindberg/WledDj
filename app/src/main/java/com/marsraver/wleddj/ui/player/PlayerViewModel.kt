@@ -9,12 +9,14 @@ import androidx.lifecycle.viewModelScope
 import com.marsraver.wleddj.data.repository.InstallationRepository
 import com.marsraver.wleddj.engine.RenderEngine
 import com.marsraver.wleddj.engine.animations.BouncingBallAnimation
-import com.marsraver.wleddj.engine.animations.RandomRectsAnimation
-import com.marsraver.wleddj.engine.animations.StationaryBallAnimation
+
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.delay
 
 class PlayerViewModel(
     application: Application,
@@ -133,14 +135,7 @@ class PlayerViewModel(
         refreshRegions()
     }
     
-    fun addRectAnimation() {
-        val region = com.marsraver.wleddj.data.model.AnimationRegion(
-            rect = android.graphics.RectF(200f, 400f, 600f, 800f),
-            animation = RandomRectsAnimation()
-        )
-         _engine.value?.addRegion(region)
-         refreshRegions()
-    }
+
     
     fun updateRegion(id: String, newRect: android.graphics.RectF, rotation: Float) {
         _engine.value?.updateRegion(id, newRect, rotation)
@@ -161,27 +156,7 @@ class PlayerViewModel(
         saveAnimations()
     }
 
-    // Tool Drag State
-    private val _draggedTool = MutableStateFlow<String?>(null)
-    val draggedTool = _draggedTool.asStateFlow()
-    
-    // We need position to render the ghost
-    private val _dragPosition = MutableStateFlow(androidx.compose.ui.geometry.Offset.Zero)
-    val dragPosition = _dragPosition.asStateFlow()
 
-    fun startToolDrag(type: String, offset: androidx.compose.ui.geometry.Offset) {
-        _draggedTool.value = type
-        _dragPosition.value = offset
-    }
-    
-    fun updateToolDrag(delta: androidx.compose.ui.geometry.Offset) {
-         _dragPosition.value += delta
-    }
-    
-    fun endToolDrag() {
-        _draggedTool.value = null
-    }
-    
     // Selection State
     private val _selectedRegionId = MutableStateFlow<String?>(null)
     val selectedRegionId: StateFlow<String?> = _selectedRegionId.asStateFlow()
@@ -202,8 +177,7 @@ class PlayerViewModel(
     fun createAnimation(type: String, dropX: Float = 0f, dropY: Float = 0f): com.marsraver.wleddj.engine.Animation {
          return when(type) {
             "Ball" -> com.marsraver.wleddj.engine.animations.BouncingBallAnimation(dropX, dropY, 30f)
-            "Static" -> com.marsraver.wleddj.engine.animations.StationaryBallAnimation()
-            "Rects" -> com.marsraver.wleddj.engine.animations.RandomRectsAnimation()
+
             "Fireworks" -> com.marsraver.wleddj.engine.animations.FireworksAnimation()
             "Aurora Borealis" -> com.marsraver.wleddj.engine.animations.AuroraBorealisAnimation()
             "Blurz" -> com.marsraver.wleddj.engine.animations.BlurzAnimation()
@@ -211,6 +185,7 @@ class PlayerViewModel(
             "MusicBall" -> com.marsraver.wleddj.engine.animations.MusicBallAnimation()
             "Flashlight" -> com.marsraver.wleddj.engine.animations.FlashlightAnimation()
             "DeathStarRun" -> com.marsraver.wleddj.engine.animations.DeathStarAnimation(getApplication())
+            "Spectrogram" -> com.marsraver.wleddj.engine.animations.SpectrogramAnimation()
             else -> com.marsraver.wleddj.engine.animations.BouncingBallAnimation(dropX, dropY, 30f)
         }
     }
@@ -224,12 +199,12 @@ class PlayerViewModel(
         val savedList = regions.map { region ->
             val type = when(region.animation) {
                 is com.marsraver.wleddj.engine.animations.BouncingBallAnimation -> "Ball"
-                is com.marsraver.wleddj.engine.animations.StationaryBallAnimation -> "Static"
-                is com.marsraver.wleddj.engine.animations.RandomRectsAnimation -> "Rects"
+
                 is com.marsraver.wleddj.engine.animations.FireworksAnimation -> "Fireworks"
                 is com.marsraver.wleddj.engine.animations.AuroraBorealisAnimation -> "Aurora Borealis"
                 is com.marsraver.wleddj.engine.animations.BlurzAnimation -> "Blurz"
                 is com.marsraver.wleddj.engine.animations.GeqAnimation -> "GEQ"
+                is com.marsraver.wleddj.engine.animations.SpectrogramAnimation -> "Spectrogram"
                 is com.marsraver.wleddj.engine.animations.FlashlightAnimation -> "Flashlight"
                 is com.marsraver.wleddj.engine.animations.MusicBallAnimation -> "MusicBall"
                 is com.marsraver.wleddj.engine.animations.DeathStarAnimation -> "DeathStarRun"
@@ -299,9 +274,57 @@ class PlayerViewModel(
         }
     }
 
+    private val _deviceStatuses = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+    val deviceStatuses = _deviceStatuses.asStateFlow()
+    
+    private var monitorJob: kotlinx.coroutines.Job? = null
+
+    private fun startMonitoring() {
+        if (monitorJob?.isActive == true) return
+        monitorJob = viewModelScope.launch {
+            while (isActive) {
+                val devices = _installation.value?.devices ?: emptyList()
+                if (devices.isNotEmpty()) {
+                    val scope = this
+                    val tasks = devices.map { device ->
+                         val task = scope.async { 
+                             com.marsraver.wleddj.data.repository.WledApiHelper.pingDevice(device.ip) 
+                         }
+                         device.ip to task
+                    }
+                    
+                    val map = mutableMapOf<String, Boolean>()
+                    for ((ip, task) in tasks) {
+                        map[ip] = task.await()
+                    }
+                    _deviceStatuses.value = map
+                }
+                delay(5000)
+            }
+        }
+    }
+    
+    private fun stopMonitoring() {
+        monitorJob?.cancel()
+        monitorJob = null
+    }
+
+    fun pauseEngine() {
+        android.util.Log.d("PlayerViewModel", "Pausing Engine (Lifecycle)")
+        _engine.value?.stop()
+        stopMonitoring()
+    }
+
+    fun resumeEngine() {
+        android.util.Log.d("PlayerViewModel", "Resuming Engine (Lifecycle)")
+        _engine.value?.start()
+        startMonitoring()
+    }
+
     override fun onCleared() {
         super.onCleared()
         _engine.value?.stop()
+        stopMonitoring()
     }
 
     class Factory(

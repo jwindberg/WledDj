@@ -7,17 +7,7 @@ import android.graphics.RectF
 import com.marsraver.wleddj.engine.Animation
 import kotlin.random.Random
 
-class StationaryBallAnimation : Animation {
-    override fun draw(canvas: Canvas, width: Float, height: Float) {
-        val paint = Paint().apply {
-            color = Color.RED
-            style = Paint.Style.FILL
-            isAntiAlias = true
-        }
-        val radius = minOf(width, height) * 0.4f
-        canvas.drawCircle(width / 2f, height / 2f, radius, paint)
-    }
-}
+
 
 class BouncingBallAnimation(
     private var x: Float = 50f,
@@ -65,13 +55,4 @@ class BouncingBallAnimation(
     }
 }
 
-class RandomRectsAnimation : Animation {
-    private val paint = Paint()
 
-    override fun draw(canvas: Canvas, width: Float, height: Float) {
-        paint.color = Color.rgb(Random.nextInt(256), Random.nextInt(256), Random.nextInt(256))
-        val x = Random.nextFloat() * width
-        val y = Random.nextFloat() * height
-        canvas.drawRect(x, y, x + 50, y + 50, paint)
-    }
-}

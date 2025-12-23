@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -55,6 +56,7 @@ fun LayoutEditorScreen(
     val installation by viewModel.installation.collectAsState()
     val discoveredDevices by viewModel.discoveredDevices.collectAsState()
     var showAddSheet by remember { mutableStateOf(false) }
+    var showRebootDialog by remember { mutableStateOf(false) }
     var selectedDeviceIp: String? by remember { mutableStateOf(null) }
 
     // Derive the selected device object from the current installation
@@ -71,13 +73,28 @@ fun LayoutEditorScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Device Layout") },
+                title = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Device Layout")
+                        if (selectedDevice != null) {
+                            Text(
+                                text = selectedDevice.name,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = {
                         viewModel.saveProject()
                         onBack()
                     }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack, 
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 },
                 actions = {
@@ -86,21 +103,42 @@ fun LayoutEditorScreen(
                             selectedDevice?.let { viewModel.removeDevice(it) }
                             selectedDeviceIp = null
                         }) {
-                            Icon(Icons.Default.Delete, "Delete Device")
+                            Icon(
+                                imageVector = Icons.Default.Delete, 
+                                contentDescription = "Delete Device",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
                         }
                     }
                     IconButton(onClick = {
                         viewModel.saveProject()
-                        onPlay()
+                        onPlay() // Navigates to subsequent screen (Animation Layout)
                     }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowForward, "Play Mode")
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward, 
+                            contentDescription = "Animation Layout",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddSheet = true }) {
-                Icon(Icons.Default.Add, "Add Device")
+            Row(
+                verticalAlignment = Alignment.CenterVertically, 
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                FloatingActionButton(
+                    onClick = { showRebootDialog = true },
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                ) {
+                    Icon(Icons.Default.Refresh, "Reboot All")
+                }
+
+                FloatingActionButton(onClick = { showAddSheet = true }) {
+                    Icon(Icons.Default.Add, "Add Device")
+                }
             }
         }
     ) { padding ->
@@ -151,6 +189,23 @@ fun LayoutEditorScreen(
                 }
             }
         }
+    }
+
+    if (showRebootDialog) {
+        AlertDialog(
+            onDismissRequest = { showRebootDialog = false },
+            title = { Text("Reboot Devices") },
+            text = { Text("Reboot all WLED devices?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.rebootAllDevices()
+                    showRebootDialog = false
+                }) { Text("Yes") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRebootDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 

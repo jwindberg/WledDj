@@ -45,4 +45,46 @@ object WledApiHelper {
             null
         }
     }
+
+
+    suspend fun rebootDevice(ip: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("http://$ip/json/state")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.connectTimeout = 2000
+            connection.requestMethod = "POST"
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", "application/json")
+            
+            val jsonBody = "{\"rb\":true}"
+            connection.outputStream.use { it.write(jsonBody.toByteArray()) }
+            
+            val code = connection.responseCode
+            code == 200
+        } catch (e: Exception) {
+            android.util.Log.e("WledApiHelper", "Error rebooting $ip", e)
+            false
+        }
+    }
+
+
+    suspend fun pingDevice(ip: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("http://$ip/json/state")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.connectTimeout = 1000 // 1s Timeout
+            connection.readTimeout = 1000
+            connection.requestMethod = "GET"
+            
+            val code = connection.responseCode
+            if (code == 200) {
+                try { connection.inputStream.close() } catch (ignored: Exception) {}
+                true
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
 }

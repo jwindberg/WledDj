@@ -23,6 +23,26 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Request Audio Permission
+        val requestPermissionLauncher = registerForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+        ) { isGranted: Boolean ->
+            if (isGranted) {
+                // Permission granted
+            } else {
+                // Permission denied
+            }
+        }
+        
+        if (androidx.core.content.ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.RECORD_AUDIO
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+        }
+
         val repository = com.marsraver.wleddj.data.repository.RepositoryProvider.getRepository(applicationContext)
 
         setContent {
