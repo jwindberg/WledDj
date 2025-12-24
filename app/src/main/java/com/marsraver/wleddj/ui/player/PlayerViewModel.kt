@@ -188,6 +188,7 @@ class PlayerViewModel(
             "Spectrogram" -> com.marsraver.wleddj.engine.animations.SpectrogramAnimation()
             "Fireflies" -> com.marsraver.wleddj.engine.animations.FirefliesAnimation()
             "TronRecognizer" -> com.marsraver.wleddj.engine.animations.TronRecognizerAnimation(getApplication())
+            "SpectrumTree" -> com.marsraver.wleddj.engine.animations.SpectrumTreeAnimation()
             else -> com.marsraver.wleddj.engine.animations.BouncingBallAnimation(dropX, dropY, 30f)
         }
     }
@@ -211,7 +212,9 @@ class PlayerViewModel(
                 is com.marsraver.wleddj.engine.animations.MusicBallAnimation -> "MusicBall"
                 is com.marsraver.wleddj.engine.animations.DeathStarAnimation -> "DeathStarRun"
                 is com.marsraver.wleddj.engine.animations.FirefliesAnimation -> "Fireflies"
+                is com.marsraver.wleddj.engine.animations.FirefliesAnimation -> "Fireflies"
                 is com.marsraver.wleddj.engine.animations.TronRecognizerAnimation -> "TronRecognizer"
+                is com.marsraver.wleddj.engine.animations.SpectrumTreeAnimation -> "SpectrumTree"
                 else -> "Ball"
             }
             

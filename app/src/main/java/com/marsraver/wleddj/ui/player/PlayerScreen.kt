@@ -689,7 +689,8 @@ fun AnimationSelectionSheet(
                     "DeathStarRun",
                     "Flashlight",
                     "Fireflies",
-                    "TronRecognizer"
+                    "TronRecognizer",
+                    "SpectrumTree"
                 ).sorted()
                 
                 items(animations.size) { index ->
