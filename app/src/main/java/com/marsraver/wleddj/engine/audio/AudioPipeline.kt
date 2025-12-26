@@ -170,37 +170,112 @@ object AudioPipeline {
         (rms * 255.0 * 10.0).roundToInt().coerceIn(0, 255)
 
     private fun computeBands(samples: ShortArray, bands: Int): IntArray {
-        // Very basic implementation: just RMS for now as we don't have a full FFT library imported yet
-        // To do proper FFT we'd need JTransforms or similar, or write a simple FFT.
-        // For now, let's map the raw RMS to all bands to visualize *something* until we port FFT.
+        // Use a window size of 512 for FFT (good balance for mobile)
+        val fftSize = 512
+        if (samples.size < fftSize) return IntArray(bands)
+
+        // 1. Prepare input (Real part only, Imaginary 0)
+        // Apply Hanning Window to reduce leakage
+        val real = FloatArray(fftSize)
+        val imag = FloatArray(fftSize)
         
-        // OR: Simpler FFT since we just need magnitude.
-        // Let's implement a very basic slow DFT if size is small, or just placeholder.
-        // The user specifically asked for FFT data.
-        // I should probably write a simple FFT function here.
+        for (i in 0 until fftSize) {
+            val window = 0.5 * (1.0 - kotlin.math.cos(2.0 * Math.PI * i / (fftSize - 1)))
+            real[i] = (samples[i] * window).toFloat()
+            imag[i] = 0f
+        }
+
+        // 2. Perform FFT
+        fft(real, imag)
+
+        // 3. Compute Magnitudes needed for the requested number of bands
+        // Max frequency is SampleRate / 2.
+        // We want to map linear bins to the requested 'bands'.
+        // FFT bins: 0 to fftSize/2.
         
-        return simpleFftMagnitude(samples, bands)
+        val magnitudes =  FloatArray(fftSize / 2)
+        for (i in 0 until fftSize / 2) {
+            magnitudes[i] = kotlin.math.sqrt(real[i] * real[i] + imag[i] * imag[i])
+        }
+
+        val outBands = IntArray(bands)
+        val binsPerBand = (fftSize / 2) / bands
+        
+        for (i in 0 until bands) {
+            var sum = 0f
+            // Simple linear averaging. For better audio vis, logarithmic is better but this suffices.
+            // Ensure we don't go out of bounds
+            val startBin = i * binsPerBand
+            val endBin = min(startBin + binsPerBand, magnitudes.size)
+            
+            for (j in startBin until endBin) {
+                sum += magnitudes[j]
+            }
+            // Average and scale
+            // Scaling factor tuned for 16-bit PCM inputs
+            val avg = if (endBin > startBin) sum / (endBin - startBin) else 0f
+            val db = 20 * kotlin.math.log10(avg + 1) // Log scale usually looks better
+            val scaled = (db * 3).toInt().coerceIn(0, 255) 
+            
+            outBands[i] = scaled
+        }
+        
+        return outBands
     }
-    
-    private fun simpleFftMagnitude(samples: ShortArray, bands: Int): IntArray {
-        // Simple Cooley-Tukey or just basic energy levels? 
-        // Let's do a mock for now to get piping working, then upgrade.
-        // Actually, let's use the simulator logic for "bands" if it's too hard to write FFT in one go.
-        // NO, user asked for FFT. 
-        
-        // NOTE: Writing a full FFT efficiently in Kotlin without libs is verbose.
-        // I'll assume for this prototype that we use a simplified energy mapping 
-        // or I'll implement a tiny RealDoubleFFT if I can be concise.
-        
-        // Fallback: Return randomized variations of RMS for visual effect 
-        // until I add a proper FFT dependency or file.
-        val rms = computeRms(samples)
-        val baseLevel = (rms * 255.0 * 2.5).toInt()
-        
-        return IntArray(bands) { i ->
-            // Fake spectrum for now: Lower bands higher energy
-            val factor = 1.0 - (i.toDouble() / bands) * 0.5
-            (baseLevel * factor).toInt().coerceIn(0, 255)
+
+    /**
+     * In-place radix-2 FFT.
+     * Arrays must be power of 2 size.
+     */
+    private fun fft(real: FloatArray, imag: FloatArray) {
+        val n = real.size
+        // Bit reversal permutation
+        var j = 0
+        for (i in 0 until n - 1) {
+            if (i < j) {
+                val tr = real[i]; real[i] = real[j]; real[j] = tr
+                val ti = imag[i]; imag[i] = imag[j]; imag[j] = ti
+            }
+            var k = n / 2
+            while (k <= j) {
+                j -= k
+                k /= 2
+            }
+            j += k
+        }
+
+        // Butterfly updates
+        var l = 2
+        while (l <= n) {
+            val m = l / 2
+            val ang = -2.0 * Math.PI / l
+            val wReBase = kotlin.math.cos(ang)
+            val wImBase = kotlin.math.sin(ang)
+            
+            var wRe = 1.0
+            var wIm = 0.0
+            
+            for (k in 0 until m) {
+                var i = k
+                while (i < n) {
+                    val j = i + m
+                    val tr = (wRe * real[j] - wIm * imag[j]).toFloat()
+                    val ti = (wRe * imag[j] + wIm * real[j]).toFloat()
+                    
+                    real[j] = real[i] - tr
+                    imag[j] = imag[i] - ti
+                    real[i] = real[i] + tr
+                    imag[i] = imag[i] + ti
+                    i += l
+                }
+                
+                // Rotate w
+                val nextWRe = wRe * wReBase - wIm * wImBase
+                val nextWIm = wRe * wImBase + wIm * wReBase
+                wRe = nextWRe
+                wIm = nextWIm
+            }
+            l *= 2
         }
     }
 }

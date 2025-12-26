@@ -9,6 +9,8 @@ import androidx.lifecycle.viewModelScope
 import com.marsraver.wleddj.data.repository.InstallationRepository
 import com.marsraver.wleddj.engine.RenderEngine
 import com.marsraver.wleddj.engine.animations.BouncingBallAnimation
+import com.marsraver.wleddj.engine.color.Palette
+import com.marsraver.wleddj.engine.color.Palettes
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -163,6 +165,65 @@ class PlayerViewModel(
 
     fun selectRegion(id: String?) {
         _selectedRegionId.value = id
+        refreshControlsState()
+    }
+    
+    // Controls State
+    data class AnimationControlsState(
+        val hasSelection: Boolean = false,
+        val supportsPrimary: Boolean = false,
+        val supportsSecondary: Boolean = false,
+        val supportsPalette: Boolean = false,
+        val primaryColor: Int = android.graphics.Color.WHITE,
+        val secondaryColor: Int = android.graphics.Color.BLACK,
+        val currentPaletteName: String = "Default"
+    )
+    
+    private val _animationControlsState = MutableStateFlow(AnimationControlsState())
+    val animationControlsState = _animationControlsState.asStateFlow()
+    
+    private fun refreshControlsState() {
+        val id = _selectedRegionId.value
+        val region = if (id != null) _engine.value?.getRegions()?.find { it.id == id } else null
+        val anim = region?.animation
+        
+        if (anim != null) {
+            _animationControlsState.value = AnimationControlsState(
+                hasSelection = true,
+                supportsPrimary = anim.supportsPrimaryColor(),
+                supportsSecondary = anim.supportsSecondaryColor(),
+                supportsPalette = anim.supportsPalette(),
+                primaryColor = anim.primaryColor,
+                secondaryColor = anim.secondaryColor,
+                currentPaletteName = anim.currentPalette?.name ?: "Default"
+            )
+        } else {
+            _animationControlsState.value = AnimationControlsState()
+        }
+    }
+    
+    fun setPrimaryColor(color: Int) {
+        val anim = getSelectedAnimation() ?: return
+        anim.primaryColor = color
+        refreshControlsState()
+    }
+    
+    fun setSecondaryColor(color: Int) {
+        val anim = getSelectedAnimation() ?: return
+        anim.secondaryColor = color
+        refreshControlsState()
+    }
+    
+    fun setPalette(paletteName: String) {
+        val anim = getSelectedAnimation() ?: return
+        val pal = Palettes.get(paletteName) ?: return
+        anim.currentPalette = pal
+        refreshControlsState()
+    }
+    
+    private fun getSelectedAnimation(): com.marsraver.wleddj.engine.Animation? {
+        val id = _selectedRegionId.value ?: return null
+        return _engine.value?.getRegions()?.find { it.id == id }?.animation
     }
 
     // Consolidated Delete Action
@@ -171,6 +232,7 @@ class PlayerViewModel(
         if (selected != null) {
             removeRegion(selected)
             _selectedRegionId.value = null
+            refreshControlsState()
         }
     }
 
@@ -190,6 +252,44 @@ class PlayerViewModel(
             "TronRecognizer" -> com.marsraver.wleddj.engine.animations.TronRecognizerAnimation(getApplication())
             "SpectrumTree" -> com.marsraver.wleddj.engine.animations.SpectrumTreeAnimation()
             "Soap" -> com.marsraver.wleddj.engine.animations.SoapAnimation()
+            "Akemi" -> com.marsraver.wleddj.engine.animations.AkemiAnimation()
+            "Fire 2012 2D" -> com.marsraver.wleddj.engine.animations.Fire2012_2DAnimation()
+            "FireNoise2D" -> com.marsraver.wleddj.engine.animations.FireNoise2DAnimation()
+            "Noise2D" -> com.marsraver.wleddj.engine.animations.Noise2DAnimation()
+            "PlasmaBall2D" -> com.marsraver.wleddj.engine.animations.PlasmaBall2DAnimation()
+            "Matrix" -> com.marsraver.wleddj.engine.animations.MatrixAnimation()
+            "MetaBalls" -> com.marsraver.wleddj.engine.animations.MetaBallsAnimation()
+            "Game Of Life" -> com.marsraver.wleddj.engine.animations.GameOfLifeAnimation()
+            "Julia" -> com.marsraver.wleddj.engine.animations.JuliaAnimation()
+            "Swirl" -> com.marsraver.wleddj.engine.animations.SwirlAnimation()
+            "Pacifica" -> com.marsraver.wleddj.engine.animations.PacificaAnimation()
+            "Blobs" -> com.marsraver.wleddj.engine.animations.BlobsAnimation()
+            "DistortionWaves" -> com.marsraver.wleddj.engine.animations.DistortionWavesAnimation()
+            "Plasmoid" -> com.marsraver.wleddj.engine.animations.PlasmoidAnimation()
+            "PolarLights" -> com.marsraver.wleddj.engine.animations.PolarLightsAnimation()
+            "Space Ships" -> com.marsraver.wleddj.engine.animations.SpaceShipsAnimation()
+            "SquareSwirl" -> com.marsraver.wleddj.engine.animations.SquareSwirlAnimation()
+            "Puddles" -> com.marsraver.wleddj.engine.animations.PuddlesAnimation()
+            "Lissajous" -> com.marsraver.wleddj.engine.animations.LissajousAnimation()
+            "Tartan" -> com.marsraver.wleddj.engine.animations.TartanAnimation()
+            "Waverly" -> com.marsraver.wleddj.engine.animations.WaverlyAnimation()
+            "CrazyBees" -> com.marsraver.wleddj.engine.animations.CrazyBeesAnimation()
+            "GhostRider" -> com.marsraver.wleddj.engine.animations.GhostRiderAnimation()
+            "SunRadiation" -> com.marsraver.wleddj.engine.animations.SunRadiationAnimation()
+            "WashingMachine" -> com.marsraver.wleddj.engine.animations.WashingMachineAnimation()
+            "RotoZoomer" -> com.marsraver.wleddj.engine.animations.RotoZoomerAnimation()
+            "Tetrix" -> com.marsraver.wleddj.engine.animations.TetrixAnimation()
+            "Hiphotic" -> com.marsraver.wleddj.engine.animations.HiphoticAnimation()
+            "BlackHole" -> com.marsraver.wleddj.engine.animations.BlackHoleAnimation()
+            "FunkyPlank" -> com.marsraver.wleddj.engine.animations.FunkyPlankAnimation()
+            "DriftRose" -> com.marsraver.wleddj.engine.animations.DriftRoseAnimation()
+            "Matripix" -> com.marsraver.wleddj.engine.animations.MatripixAnimation()
+            "WavingCell" -> com.marsraver.wleddj.engine.animations.WavingCellAnimation()
+            "Frizzles" -> com.marsraver.wleddj.engine.animations.FrizzlesAnimation()
+            "PixelWave" -> com.marsraver.wleddj.engine.animations.PixelWaveAnimation()
+            "FreqMatrix" -> com.marsraver.wleddj.engine.animations.FreqMatrixAnimation()
+            "Lake" -> com.marsraver.wleddj.engine.animations.LakeAnimation()
+            "DnaSpiral" -> com.marsraver.wleddj.engine.animations.DnaSpiralAnimation()
             else -> com.marsraver.wleddj.engine.animations.BouncingBallAnimation(dropX, dropY, 30f)
         }
     }
@@ -217,6 +317,44 @@ class PlayerViewModel(
                 is com.marsraver.wleddj.engine.animations.TronRecognizerAnimation -> "TronRecognizer"
                 is com.marsraver.wleddj.engine.animations.SpectrumTreeAnimation -> "SpectrumTree"
                 is com.marsraver.wleddj.engine.animations.SoapAnimation -> "Soap"
+                is com.marsraver.wleddj.engine.animations.AkemiAnimation -> "Akemi"
+                is com.marsraver.wleddj.engine.animations.Fire2012_2DAnimation -> "Fire 2012 2D"
+                is com.marsraver.wleddj.engine.animations.FireNoise2DAnimation -> "FireNoise2D"
+                is com.marsraver.wleddj.engine.animations.Noise2DAnimation -> "Noise2D"
+                is com.marsraver.wleddj.engine.animations.PlasmaBall2DAnimation -> "PlasmaBall2D"
+                is com.marsraver.wleddj.engine.animations.MatrixAnimation -> "Matrix"
+                is com.marsraver.wleddj.engine.animations.MetaBallsAnimation -> "MetaBalls"
+                is com.marsraver.wleddj.engine.animations.GameOfLifeAnimation -> "Game Of Life"
+                is com.marsraver.wleddj.engine.animations.JuliaAnimation -> "Julia"
+                is com.marsraver.wleddj.engine.animations.SwirlAnimation -> "Swirl"
+                is com.marsraver.wleddj.engine.animations.PacificaAnimation -> "Pacifica"
+                is com.marsraver.wleddj.engine.animations.BlobsAnimation -> "Blobs"
+                is com.marsraver.wleddj.engine.animations.DistortionWavesAnimation -> "DistortionWaves"
+                is com.marsraver.wleddj.engine.animations.PlasmoidAnimation -> "Plasmoid"
+                is com.marsraver.wleddj.engine.animations.PolarLightsAnimation -> "PolarLights"
+                is com.marsraver.wleddj.engine.animations.SpaceShipsAnimation -> "Space Ships"
+                is com.marsraver.wleddj.engine.animations.SquareSwirlAnimation -> "SquareSwirl"
+                is com.marsraver.wleddj.engine.animations.PuddlesAnimation -> "Puddles"
+                is com.marsraver.wleddj.engine.animations.LissajousAnimation -> "Lissajous"
+                is com.marsraver.wleddj.engine.animations.TartanAnimation -> "Tartan"
+                is com.marsraver.wleddj.engine.animations.WaverlyAnimation -> "Waverly"
+                is com.marsraver.wleddj.engine.animations.CrazyBeesAnimation -> "CrazyBees"
+                is com.marsraver.wleddj.engine.animations.GhostRiderAnimation -> "GhostRider"
+                is com.marsraver.wleddj.engine.animations.SunRadiationAnimation -> "SunRadiation"
+                is com.marsraver.wleddj.engine.animations.WashingMachineAnimation -> "WashingMachine"
+                is com.marsraver.wleddj.engine.animations.RotoZoomerAnimation -> "RotoZoomer"
+                is com.marsraver.wleddj.engine.animations.TetrixAnimation -> "Tetrix"
+                is com.marsraver.wleddj.engine.animations.HiphoticAnimation -> "Hiphotic"
+                is com.marsraver.wleddj.engine.animations.BlackHoleAnimation -> "BlackHole"
+                is com.marsraver.wleddj.engine.animations.FunkyPlankAnimation -> "FunkyPlank"
+                is com.marsraver.wleddj.engine.animations.DriftRoseAnimation -> "DriftRose"
+                is com.marsraver.wleddj.engine.animations.MatripixAnimation -> "Matripix"
+                is com.marsraver.wleddj.engine.animations.WavingCellAnimation -> "WavingCell"
+                is com.marsraver.wleddj.engine.animations.FrizzlesAnimation -> "Frizzles"
+                is com.marsraver.wleddj.engine.animations.PixelWaveAnimation -> "PixelWave"
+                is com.marsraver.wleddj.engine.animations.FreqMatrixAnimation -> "FreqMatrix"
+                is com.marsraver.wleddj.engine.animations.LakeAnimation -> "Lake"
+                is com.marsraver.wleddj.engine.animations.DnaSpiralAnimation -> "DnaSpiral"
                 else -> "Ball"
             }
             
@@ -262,6 +400,7 @@ class PlayerViewModel(
         // Auto-select
         val regions = _regions.value
         _selectedRegionId.value = regions.lastOrNull()?.id
+        refreshControlsState()
         
         saveAnimations()
     }

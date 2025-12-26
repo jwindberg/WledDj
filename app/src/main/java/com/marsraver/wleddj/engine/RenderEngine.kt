@@ -491,9 +491,4 @@ class RenderEngine(
     }
 }
 
-interface Animation {
-    fun draw(canvas: Canvas, width: Float, height: Float)
-    fun onTouch(x: Float, y: Float): Boolean { return false }
-    fun onTransform(panX: Float, panY: Float, zoom: Float, rotation: Float): Boolean { return false }
-    fun destroy() {}
-}
+

@@ -14,9 +14,34 @@ class BouncingBallAnimation(
     private var y: Float = 50f,
     private val radius: Float = 30f
 ) : Animation {
+    
+    // Capability
+    override fun supportsPrimaryColor(): Boolean = true
+    
+    // State
+    private var _primaryColor: Int = Color.RED
+    override var primaryColor: Int
+        get() = _primaryColor
+        set(value) {
+            _primaryColor = value
+            paint.color = value
+        }
+
+    // Unused
+    override var secondaryColor: Int = Color.BLACK
+    override fun supportsSecondaryColor(): Boolean = false
+    override var currentPalette: com.marsraver.wleddj.engine.color.Palette? = null
+    override fun supportsPalette(): Boolean = false
+
+
     private var dx = 5f
     private var dy = 5f
-    private val paint = Paint().apply { color = Color.RED }
+    private val paint = Paint().apply { color = _primaryColor }
+    
+    init {
+        // Ensure UI picks up default
+        primaryColor = Color.RED
+    }
 
     override fun draw(canvas: Canvas, width: Float, height: Float) {
         x += dx

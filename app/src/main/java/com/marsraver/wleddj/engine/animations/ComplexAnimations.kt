@@ -196,6 +196,15 @@ class FlashlightAnimation : Animation {
     private var targetX = -1f
     private var targetY = -1f
     
+    // Default to Yellow (classic flashlight)
+    private var _primaryColor: Int = Color.YELLOW
+    
+    override var primaryColor: Int
+        get() = _primaryColor
+        set(value) { _primaryColor = value }
+
+    override fun supportsPrimaryColor(): Boolean = true
+
     private val paint = Paint().apply {
         isAntiAlias = true
     }
@@ -210,12 +219,12 @@ class FlashlightAnimation : Animation {
         // Fixed radius (Ball size approx = 30f)
         val radius = 30f 
         
-        // Yellow Glowing Spot
-        // RadialGradient: Center (Yellow), Edge (Transparent)
+        // Glowing Spot using Primary Color
+        // RadialGradient: Center (Color), Edge (Transparent)
         val shader = android.graphics.RadialGradient(
             targetX, targetY,
             radius,
-            intArrayOf(Color.YELLOW, Color.TRANSPARENT),
+            intArrayOf(_primaryColor, Color.TRANSPARENT),
             floatArrayOf(0.2f, 1.0f),
             android.graphics.Shader.TileMode.CLAMP
         )

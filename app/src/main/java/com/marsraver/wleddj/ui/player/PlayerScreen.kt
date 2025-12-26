@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 // import androidx.compose.material.icons.filled.Edit // Removed unused edit
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.*
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -267,7 +268,24 @@ fun PlayerScreen(
                     }
                 }
                 
-                // 2. BOTTOM SHEET (Custom Implementation)
+                // 2. CONTROLS BAR (Overlay at Bottom)
+                if (!isInteractive) {
+                    val controlsState by viewModel.animationControlsState.collectAsState()
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(bottom = 16.dp, start = 16.dp, end = 100.dp) // Avoid FAB
+                    ) {
+                        AnimationControlsBar(
+                            state = controlsState,
+                            onPrimaryColorChange = { viewModel.setPrimaryColor(it) },
+                            onSecondaryColorChange = { viewModel.setSecondaryColor(it) },
+                            onPaletteChange = { viewModel.setPalette(it) }
+                        )
+                    }
+                }
+
+                // 3. BOTTOM SHEET (Custom Implementation)
                 if (showSheet && !isInteractive) {
                      AnimationSelectionSheet(
                          modifier = Modifier.align(Alignment.BottomCenter),
@@ -679,6 +697,45 @@ fun AnimationSelectionSheet(
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
                 val animations = listOf(
+                    "Akemi",
+                    "Fire 2012 2D",
+                    "FireNoise2D",
+                    "Noise2D",
+                    "PlasmaBall2D",
+                    "Matrix",
+                    "MetaBalls",
+                    "Game Of Life",
+                    "Julia",
+                    "PlasmaRotoZoom",
+                    "Swirl",
+                    "Pacifica",
+                    "Blobs",
+                    "DistortionWaves",
+                    "Plasmoid",
+                    "PolarLights",
+                    "Space Ships",
+                    "SquareSwirl",
+                    "Puddles",
+                    "Lissajous",
+                    "Tartan",
+                    "Waverly",
+                    "CrazyBees",
+                    "GhostRider",
+                    "SunRadiation",
+                    "WashingMachine",
+                    "RotoZoomer",
+                    "Tetrix",
+                    "Hiphotic",
+                    "BlackHole",
+                    "FunkyPlank",
+                    "DriftRose",
+                    "Matripix",
+                    "WavingCell",
+                    "Frizzles",
+                    "PixelWave",
+                    "FreqMatrix",
+                    "Lake",
+                    "DnaSpiral",
                     "Ball", 
                     "Spectrogram",
                     "Fireworks", 
@@ -694,10 +751,28 @@ fun AnimationSelectionSheet(
                     "Soap"
                 ).sorted()
                 
+                val audioReactiveConfigs = setOf(
+                    "Akemi",
+                    "Swirl",
+                    "Plasmoid",
+                    "Puddles",
+                    "Waverly",
+                    "FunkyPlank",
+                    "Matripix",
+                    "PixelWave",
+                    "FreqMatrix",
+                    "Spectrogram",
+                    "GEQ",
+                    "MusicBall",
+                    "SpectrumTree"
+                )
+                
                 items(animations.size) { index ->
+                    val name = animations[index]
                     AnimationListItem(
-                        type = animations[index],
-                        onClick = { onSelect(animations[index]) }
+                        type = name,
+                        isAudioReactive = audioReactiveConfigs.contains(name),
+                        onClick = { onSelect(name) }
                     )
                 }
             }
@@ -708,6 +783,7 @@ fun AnimationSelectionSheet(
 @Composable
 fun AnimationListItem(
     type: String,
+    isAudioReactive: Boolean,
     onClick: () -> Unit
 ) {
     Surface(
@@ -730,8 +806,14 @@ fun AnimationListItem(
                 modifier = Modifier.weight(1f)
             )
             
-
+            if (isAudioReactive) {
+                androidx.compose.material3.Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Filled.MusicNote,
+                    contentDescription = "Audio Reactive",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
         }
     }
 }
-

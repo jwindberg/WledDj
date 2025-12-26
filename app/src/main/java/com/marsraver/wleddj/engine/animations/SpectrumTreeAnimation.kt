@@ -18,7 +18,10 @@ import kotlin.random.Random
  * - Star pulses to the beat.
  * - Snow falls in background.
  */
-class SpectrumTreeAnimation : Animation {
+class SpectrumTreeAnimation : BasePixelAnimation() {
+
+    override fun supportsPalette(): Boolean = true
+    override fun getDefaultPaletteName(): String = "Christmas"
 
     private val fftMeter = FftMeter(16) // 16 bands for ornaments
     
@@ -50,8 +53,9 @@ class SpectrumTreeAnimation : Animation {
     private data class Snowflake(var x: Float, var y: Float, var speed: Float, var size: Float)
     private val snow = mutableListOf<Snowflake>()
     
-    init {
+    override fun onInit() {
         // Pre-populate snow
+        snow.clear()
         repeat(50) {
             snow.add(Snowflake(
                 Random.nextFloat(), // Normalized X
@@ -60,6 +64,12 @@ class SpectrumTreeAnimation : Animation {
                 Random.nextFloat() * 3f + 2f
             ))
         }
+    }
+
+    override fun update(now: Long): Boolean {
+        // Base pixel animation update loop not really used here as we draw directly, 
+        // but we need to satisfy the abstract class.
+        return true
     }
 
     override fun draw(canvas: Canvas, width: Float, height: Float) {
@@ -115,28 +125,48 @@ class SpectrumTreeAnimation : Animation {
                 val size = 5f + (level * 15f) // Pulse size
                 val brightness = (level * 255).toInt()
                 
-                // Color map: Low freq (start of bands) = Blue/Purple?
-                // Christmas: Red/Gold/Silver/Blue
-                val color = when(bandIndex % 4) {
-                    0 -> Color.rgb(255, 0, 0) // Red
-                    1 -> Color.rgb(255, 215, 0) // Gold
-                    2 -> Color.rgb(0, 0, 255) // Blue
-                    3 -> Color.rgb(192, 192, 192) // Silver
-                    else -> Color.WHITE
-                }
+                // Color from Palette
+                // Map band index to palette? 
+                // Or map tree position to palette? 
+                // Let's act like a spectrum: Low freq (bottom of tree?) -> High freq (top).
+                // Wait, loop goes Top (i=1) to Bottom (i=5).
+                // bandIndex 0 is usually bass. 
+                // Typical spectrum: Left=Bass, Right=Treble.
+                // Here we map indices linearly.
+                
+                // Let's spread the palette across the bands. 16 bands max.
+                val paletteIndex = (bandIndex * 16).coerceIn(0, 255)
+                val baseColor = getColorFromPalette(paletteIndex)
                 
                 // Dim non-active ones
-                var r = Color.red(color); var g = Color.green(color); var b = Color.blue(color)
+                var r = Color.red(baseColor); var g = Color.green(baseColor); var b = Color.blue(baseColor)
                 if (level < 0.2f) {
                     r /= 4; g /= 4; b /= 4
                 } else {
-                    // Boost active
-                    r = (r + brightness).coerceAtMost(255)
-                    g = (g + brightness).coerceAtMost(255)
-                    b = (b + brightness).coerceAtMost(255)
+                    // Boost active (simple brighten logic or just use full color)
+                    // If we use full color it overrides the dim.
+                    // Let's just keep 'baseColor' but apply brightness scaling?
+                    // getColorFromPalette(idx, brightness)?
+                    // BasePixelAnimation has `colorFromPalette(idx, brightness)`? No `getColorFromPalette(idx)` returns int.
+                    // We can manually scale.
+                    // Actually, simpler:
                 }
                 
-                ornamentPaint.color = Color.rgb(r, g, b)
+                // Re-assemble
+                // Improve boost/dim:
+                if (level >= 0.2f) {
+                     val hsv = FloatArray(3)
+                     Color.colorToHSV(baseColor, hsv)
+                     // boost value
+                     hsv[2] = (hsv[2] + 0.2f).coerceAtMost(1f)
+                     // maybe desaturate slightly for brightness?
+                     ornamentPaint.color = Color.HSVToColor(hsv)
+                } else {
+                     val hsv = FloatArray(3)
+                     Color.colorToHSV(baseColor, hsv)
+                     hsv[2] *= 0.3f // Dim
+                     ornamentPaint.color = Color.HSVToColor(hsv)
+                }
                 
                 val ox = startX + j * spacing
                 canvas.drawCircle(ox, yPos, size, ornamentPaint)
