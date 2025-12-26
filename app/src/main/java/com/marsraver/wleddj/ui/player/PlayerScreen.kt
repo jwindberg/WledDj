@@ -690,7 +690,8 @@ fun AnimationSelectionSheet(
                     "Flashlight",
                     "Fireflies",
                     "TronRecognizer",
-                    "SpectrumTree"
+                    "SpectrumTree",
+                    "Soap"
                 ).sorted()
                 
                 items(animations.size) { index ->
