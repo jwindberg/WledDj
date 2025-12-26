@@ -290,6 +290,7 @@ class PlayerViewModel(
             "FreqMatrix" -> com.marsraver.wleddj.engine.animations.FreqMatrixAnimation()
             "Lake" -> com.marsraver.wleddj.engine.animations.LakeAnimation()
             "DnaSpiral" -> com.marsraver.wleddj.engine.animations.DnaSpiralAnimation()
+            "Globe" -> com.marsraver.wleddj.engine.animations.GlobeAnimation()
             else -> com.marsraver.wleddj.engine.animations.BouncingBallAnimation(dropX, dropY, 30f)
         }
     }
@@ -302,6 +303,7 @@ class PlayerViewModel(
         val regions = currentEngine.getRegions()
         val savedList = regions.map { region ->
             val type = when(region.animation) {
+                is com.marsraver.wleddj.engine.animations.GlobeAnimation -> "Globe"
                 is com.marsraver.wleddj.engine.animations.BouncingBallAnimation -> "Ball"
 
                 is com.marsraver.wleddj.engine.animations.FireworksAnimation -> "Fireworks"

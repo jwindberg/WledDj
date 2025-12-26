@@ -1,88 +1,193 @@
 package com.marsraver.wleddj.engine.animations
 
+import android.graphics.Canvas
 import android.graphics.Color
-import com.marsraver.wleddj.engine.math.MathUtils
+import android.graphics.Paint
+import android.graphics.Typeface
+import com.marsraver.wleddj.engine.Animation
+import com.marsraver.wleddj.engine.color.Palette
+import com.marsraver.wleddj.engine.color.Palettes
 import kotlin.random.Random
-import kotlin.math.min
 
 /**
- * Matrix animation - Falling code rain effect
- * Migrated to WledDj.
+ * Matrix Animation - Real Text
+ * Renders falling trails of characters using Canvas.
  */
-class MatrixAnimation : BasePixelAnimation() {
+class MatrixAnimation : Animation {
 
-    override fun supportsPrimaryColor(): Boolean = true // For Trail
-    override fun supportsSecondaryColor(): Boolean = true // For Spawn/Head
+    private var _palette: Palette = Palettes.get("Forest") ?: Palettes.getDefault()
+    override var currentPalette: Palette?
+        get() = _palette
+        set(value) { if (value != null) _palette = value }
 
-    private lateinit var fallingCodes: BooleanArray  // Track which pixels are falling codes
-    private val random = Random.Default
+    override fun supportsPalette(): Boolean = true
+
+    // Params
+    private var paramSpeed: Int = 128
     
-    private var custom1: Int = 128  // Trail size
-    private var useCustomColors: Boolean = false
-    private var step: Long = 0L
-    private var startTimeNs: Long = 0L
-
-    init {
-        // Initialize defaults immediately so UI picks them up
-        primaryColor = Color.rgb(27, 130, 39) // Trail (Dark Green)
-        secondaryColor = Color.rgb(175, 255, 175) // Spawn (Light Green)
+    // Grid State
+    private class cell {
+        var char: String = ""
+        var alpha: Int = 0 // 0-255 brightness
+        var isLink: Boolean = false // is this the "head"?
+        var colorIdx: Int = 0
     }
-
-    override fun onInit() {
-        fallingCodes = BooleanArray(width * height)
-        startTimeNs = System.nanoTime()
+    
+    private var grid: Array<Array<cell>>? = null
+    private var cols = 0
+    private var rows = 0
+    private var drops: IntArray = IntArray(0) // y-position of drop head for each column
+    
+    private val paint = Paint().apply {
+        color = Color.GREEN
+        textSize = 40f 
+        typeface = Typeface.MONOSPACE
+        textAlign = Paint.Align.CENTER
+        // Maybe make it bold?
+        isFakeBoldText = true
     }
+    
+    // Glyphs: standard + some katakana-ish symbols if available, or just math
+    private val glyphs = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ@#$%&<>?=+*^"
 
-    override fun update(now: Long): Boolean {
-        val timeMs = (System.nanoTime() - startTimeNs) / 1_000_000
+    private var lastDrawTime = 0L
 
-        val fade = MathUtils.map(custom1, 0, 255, 50, 250)
-        val minRows = min(height, 150)
-        val shiftAmount = MathUtils.map(minRows, 0, 150, 0, 3)
-        val speedValue = (256 - paramSpeed) shr shiftAmount
-
-        // Define colors
-        val spawnColor = secondaryColor 
-        val trailColor = primaryColor    
-
-        var emptyScreen = true
-
-        // Check if enough time has passed
-        if (timeMs - step >= speedValue) {
-            step = timeMs
-
-            // Fade all pixels
-            fadeToBlackBy(fade)
-
-            // Move pixels one row down
-            for (row in height - 1 downTo 0) {
-                for (col in 0 until width) {
-                    val idx = row * width + col
-                    if (fallingCodes[idx]) {
-                        // This is a falling code - create trail
-                        setPixelColor(col, row, trailColor)
-
-                        // Clear current position
-                        fallingCodes[idx] = false
-
-                        // Move down if not at bottom
-                        if (row < height - 1) {
-                            setPixelColor(col, row + 1, spawnColor)
-                            fallingCodes[(row+1)*width + col] = true
-                            emptyScreen = false
-                        }
+    override fun draw(canvas: Canvas, width: Float, height: Float) {
+        canvas.drawColor(Color.BLACK)
+        
+        // Font size based on width/height? Fixed size is safer for readability.
+        // Let's target ~20-30 columns
+        val charSize = (width / 25f).coerceIn(20f, 60f)
+        paint.textSize = charSize
+        
+        val newCols = (width / charSize).toInt() + 1
+        val newRows = (height / charSize).toInt() + 1
+        
+        // Init Grid if size changes
+        if (grid == null || cols != newCols || rows != newRows) {
+            initGrid(newCols, newRows)
+        }
+        
+        // Update Logic (throttled slightly? No, smooth is better)
+        updateMatrix(newCols, newRows)
+        
+        // Draw
+        val g = grid ?: return
+        
+        for (c in 0 until cols) {
+            for (r in 0 until rows) {
+                val cell = g[c][r]
+                if (cell.alpha > 10) {
+                    val x = c * charSize + charSize/2
+                    val y = r * charSize + charSize // Baseline
+                    
+                    // Color
+                    // Head is White. Tail is Palette/Green.
+                    if (cell.isLink) {
+                        paint.color = Color.WHITE
+                        paint.alpha = 255
+                        // Glow?
+                        // paint.setShadowLayer(10f, 0f, 0f, Color.WHITE)
+                    } else {
+                        // paint.setShadowLayer(0f, 0f, 0f, 0)
+                        val palColor = _palette.getInterpolatedInt(cell.colorIdx)
+                        // manually apply alpha to palColor
+                        // int color = (alpha << 24) | (rgb)
+                        paint.color = (cell.alpha shl 24) or (palColor and 0x00FFFFFF)
                     }
+                    
+                    canvas.drawText(cell.char, x, y, paint)
                 }
             }
-
-            // Spawn new falling code at top
-            val shouldSpawn = random.nextInt(256) <= paramIntensity || emptyScreen
-            if (shouldSpawn) {
-                val spawnX = random.nextInt(width)
-                setPixelColor(spawnX, 0, spawnColor)
-                fallingCodes[spawnX] = true
+        }
+        // paint.setShadowLayer(0f, 0f, 0f, 0)
+    }
+    
+    private fun initGrid(c: Int, r: Int) {
+        cols = c
+        rows = r
+        grid = Array(cols) { 
+            Array(rows) { 
+                cell().apply { char = randomGlyph() } 
+            } 
+        }
+        drops = IntArray(cols) { -Random.nextInt(rows) } // Start drops above screen randomly
+    }
+    
+    private fun updateMatrix(c: Int, r: Int) {
+        val g = grid ?: return
+        
+        // Speed: 1 frame every X?
+        // Or float position?
+        // For grid text, integer steps are usually fine, but let's do probabilistic update
+        // based on paramSpeed.
+        
+        // Chance to update frame: 
+        // fast = 1.0 (every frame), slow = 0.1
+        // Actually, Matrix usually updates every few frames.
+        
+        // Let's just update every frame but move drops with a delay counter?
+        // Simpler: Move drops every frame? Too fast.
+        
+        // We need separate tracking or just probability per column.
+        
+        val updateChance = 0.1f + (paramSpeed / 255f) * 0.4f
+        
+        for (col in 0 until c) {
+            // Random flipping
+            if (Random.nextFloat() < 0.05f) { // 5% of columns fli a char somewhere?
+                val randRow = Random.nextInt(rows)
+                if (g[col][randRow].alpha > 0) {
+                     g[col][randRow].char = randomGlyph()
+                }
+            }
+        
+            // Move Drop
+            // Each column has a drop head at drops[col]
+            // We only move it if random < chance, to vary speeds per column
+            if (Random.nextFloat() < updateChance) {
+                val headPos = drops[col]
+                
+                // Move head down
+                drops[col]++ 
+                val newHead = drops[col]
+                
+                // Activate new head
+                if (newHead in 0 until rows) {
+                    g[col][newHead].isLink = true // It's the bright head
+                    g[col][newHead].alpha = 255
+                    g[col][newHead].char = randomGlyph()
+                    g[col][newHead].colorIdx = Random.nextInt(255) // assign random color from palette? Or fixed?
+                    // Usually matrix is uniform color. Let's use palette index based on column or consistent.
+                    g[col][newHead].colorIdx = (col * 10) % 255 // Stripes?
+                }
+                
+                // Previous head becomes tail
+                val prevPos = newHead - 1
+                if (prevPos in 0 until rows) {
+                    g[col][prevPos].isLink = false
+                }
+                
+                // Reset drop if far off bottom
+                // Trail length?
+                if (newHead > rows + 10) { 
+                    drops[col] = -Random.nextInt(20) // Reset to top
+                }
+            }
+            
+            // Decay Alpha for entire column
+            for (row in 0 until rows) {
+                val cell = g[col][row]
+                if (!cell.isLink && cell.alpha > 0) {
+                    // Fade speed
+                    val fade = 5 + (paramSpeed / 20)
+                    cell.alpha = (cell.alpha - fade).coerceAtLeast(0)
+                }
             }
         }
-        return true
+    }
+    
+    private fun randomGlyph(): String {
+        return glyphs[Random.nextInt(glyphs.length)].toString()
     }
 }

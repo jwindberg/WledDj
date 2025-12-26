@@ -1,165 +1,111 @@
 package com.marsraver.wleddj.engine.animations
 
+import android.graphics.Canvas
 import android.graphics.Color
-import com.marsraver.wleddj.engine.math.MathUtils
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.abs
-import kotlin.math.roundToInt
+import android.graphics.Paint
+import com.marsraver.wleddj.engine.Animation
+import com.marsraver.wleddj.engine.color.Palette
+import com.marsraver.wleddj.engine.color.Palettes
 import kotlin.random.Random
 
 /**
- * Floating Blobs animation
- * Migrated to WledDj.
+ * Blobs Animation - Vector Bubbles.
+ * Smooth floating circles with alpha blending.
  */
-import com.marsraver.wleddj.engine.color.Palettes
+class BlobsAnimation : Animation {
 
-class BlobsAnimation : BasePixelAnimation() {
+    private var _palette: Palette = Palettes.get("Rainbow") ?: Palettes.getDefault()
+    override var currentPalette: Palette?
+        get() = _palette
+        set(value) { if (value != null) _palette = value }
 
     override fun supportsPalette(): Boolean = true
 
+    // State
     private class Blob {
         var x: Float = 0f
         var y: Float = 0f
-        var speedX: Float = 0f
-        var speedY: Float = 0f
-        var radius: Float = 1f
-        var grow: Boolean = false
-        var color: Int = 0
+        var vx: Float = 0f
+        var vy: Float = 0f
+        var radius: Float = 10f
+        var color: Int = Color.WHITE
+        var alpha: Int = 200
     }
 
-    private lateinit var blobs: Array<Blob>
-    private var amount: Int = 0
-    private val random = Random.Default
-    private var lastColorChange: Long = 0
-    private val MAX_BLOBS = 8
-    private var startTimeNs: Long = 0L
+    private val blobs = mutableListOf<Blob>()
+    private val paint = Paint().apply { isAntiAlias = true }
+    
+    // Params
+    private var paramSpeed: Int = 128
+    private var paramIntensity: Int = 128
+    private val BLOB_COUNT = 10
 
-    override fun onInit() {
-        startTimeNs = System.nanoTime()
-        lastColorChange = System.currentTimeMillis()
-        currentPalette = Palettes.get("Rainbow")
-
-        amount = min(MAX_BLOBS, (paramIntensity shr 5) + 1)
-        blobs = Array(MAX_BLOBS) { Blob() }
-
-        for (i in 0 until MAX_BLOBS) {
-            val blob = blobs[i]
-            val maxRadius = max(2, width / 4)
-            blob.radius = random.nextFloat() * (maxRadius - 1) + 1
-
-            val speedDiv = max(1, 256 - paramSpeed).toFloat()
-            // Random speed 3..width/height
-            blob.speedX = (random.nextInt(width.coerceAtLeast(4) - 3) + 3) / speedDiv
-            blob.speedY = (random.nextInt(height.coerceAtLeast(4) - 3) + 3) / speedDiv
-
-            blob.x = random.nextInt(width).toFloat()
-            blob.y = random.nextInt(height).toFloat()
-            blob.color = random.nextInt(256)
-            blob.grow = blob.radius < 1.0f
-
-            if (blob.speedX == 0f) blob.speedX = 1f
-            if (blob.speedY == 0f) blob.speedY = 1f
+    override fun draw(canvas: Canvas, width: Float, height: Float) {
+        // Init
+        if (blobs.isEmpty()) {
+            repeat(BLOB_COUNT) {
+                blobs.add(spawnBlob(width, height))
+            }
         }
-    }
-
-    override fun update(now: Long): Boolean {
-        // fadeToBlack
-        val custom2 = 32
-        val fadeAmount = (custom2 shr 3) + 1
-        fadeToBlackBy(fadeAmount)
-
-        val currentTime = System.currentTimeMillis()
-        if (currentTime - lastColorChange >= 2000) {
-            for (i in 0 until amount) blobs[i].color = (blobs[i].color + 4) % 256
-            lastColorChange = currentTime
-        }
-
-        for (i in 0 until amount) {
-            val blob = blobs[i]
-            val speedFactor = max(abs(blob.speedX), abs(blob.speedY))
-
-            if (blob.grow) {
-                blob.radius += speedFactor * 0.05f
-                val maxRadius = min(width / 4.0f, 2.0f)
-                if (blob.radius >= maxRadius) blob.grow = false
-            } else {
-                blob.radius -= speedFactor * 0.05f
-                if (blob.radius < 1.0f) blob.grow = true
+        
+        // Clear
+        canvas.drawColor(Color.BLACK)
+        
+        // Update & Draw
+        val speedMult = 0.5f + (paramSpeed / 255f) * 2.0f
+        
+        // Use additive-like blending visually by drawing with alpha?
+        // Standard alpha blending is fine for "bubbles".
+        
+        blobs.forEach { blob ->
+            // Move
+            blob.x += blob.vx * speedMult
+            blob.y += blob.vy * speedMult
+            
+            // Bounce
+            if (blob.x < blob.radius) {
+                blob.x = blob.radius
+                blob.vx = -blob.vx
+            } else if (blob.x > width - blob.radius) {
+                blob.x = width - blob.radius
+                blob.vx = -blob.vx
             }
             
-            // hsv color from pseudo-palette index
-            val color = getColorFromPalette(blob.color)
-            val xPos = blob.x.roundToInt()
-            val yPos = blob.y.roundToInt()
-
-            if (blob.radius > 1.0f) {
-                fillCircle(xPos, yPos, blob.radius.roundToInt(), color)
-            } else {
-                setPixelColor(xPos, yPos, color)
-            }
-
-            // Movement logic
-            blob.x = when {
-                blob.x + blob.radius >= width - 1 -> blob.x + blob.speedX * ((width - 1 - blob.x) / blob.radius + 0.005f)
-                blob.x - blob.radius <= 0 -> blob.x + blob.speedX * (blob.x / blob.radius + 0.005f)
-                else -> blob.x + blob.speedX
-            }
-
-            blob.y = when {
-                blob.y + blob.radius >= height - 1 -> blob.y + blob.speedY * ((height - 1 - blob.y) / blob.radius + 0.005f)
-                blob.y - blob.radius <= 0 -> blob.y + blob.speedY * (blob.y / blob.radius + 0.005f)
-                else -> blob.y + blob.speedY
+            if (blob.y < blob.radius) {
+                blob.y = blob.radius
+                blob.vy = -blob.vy
+            } else if (blob.y > height - blob.radius) {
+                blob.y = height - blob.radius
+                blob.vy = -blob.vy
             }
             
-            // Bounds check
-             if (blob.x < 0.01f || blob.x > width - 1.01f) {
-                 val speedDiv = max(1, 256 - paramSpeed).toFloat()
-                 val dir = if (blob.x < 0.01f) 1 else -1
-                 blob.speedX = dir * ((random.nextInt(width.coerceAtLeast(4) - 3) + 3) / speedDiv)
-                 blob.x = if (dir == 1) 0.01f else width - 1.01f
-            }
-            if (blob.y < 0.01f || blob.y > height - 1.01f) {
-                 val speedDiv = max(1, 256 - paramSpeed).toFloat()
-                 val dir = if (blob.y < 0.01f) 1 else -1
-                 blob.speedY = dir * ((random.nextInt(height.coerceAtLeast(4) - 3) + 3) / speedDiv)
-                 blob.y = if (dir == 1) 0.01f else height - 1.01f
-            }
+            // Draw
+            paint.color = blob.color
+            paint.alpha = blob.alpha // Alpha is part of color in int, but Paint.alpha overrides?
+            // Safer:
+            // paint.color = (blob.color and 0x00FFFFFF) or (blob.alpha shl 24)
+            // But let's stick to simple setup.
+            
+            canvas.drawCircle(blob.x, blob.y, blob.radius, paint)
         }
-
-        // Blur
-        val custom1 = 32
-        val blurAmount = custom1 shr 2
-        if (blurAmount > 0) blur2d(blurAmount)
-
-        return true
     }
     
-    // Fill circle helper with primitive additive blending
-    private fun fillCircle(centerX: Int, centerY: Int, radius: Int, rgb: Int) {
-        if (radius <= 0) {
-            setPixelColor(centerX, centerY, rgb)
-            return
-        }
-        val minX = max(0, centerX - radius)
-        val maxX = min(width - 1, centerX + radius)
-        val minY = max(0, centerY - radius)
-        val maxY = min(height - 1, centerY + radius)
-        val radiusSq = radius * radius
-
-        for (x in minX..maxX) {
-            for (y in minY..maxY) {
-                val dx = x - centerX
-                val dy = y - centerY
-                if (dx*dx + dy*dy <= radiusSq) {
-                    // Additive blend locally
-                    val current = getPixelColor(x, y)
-                    val r = min(Color.red(current) + Color.red(rgb), 255)
-                    val g = min(Color.green(current) + Color.green(rgb), 255)
-                    val b = min(Color.blue(current) + Color.blue(rgb), 255)
-                    setPixelColor(x, y, Color.rgb(r, g, b))
-                }
-            }
-        }
+    private fun spawnBlob(w: Float, h: Float): Blob {
+        val b = Blob()
+        b.radius = (w + h) / 20f * (0.5f + Random.nextFloat()) // Random size
+        b.x = Random.nextFloat() * (w - 2*b.radius) + b.radius
+        b.y = Random.nextFloat() * (h - 2*b.radius) + b.radius
+        
+        val angle = Random.nextFloat() * 6.28f
+        val speed = 2f + Random.nextFloat() * 3f
+        b.vx = kotlin.math.cos(angle) * speed
+        b.vy = kotlin.math.sin(angle) * speed
+        
+        // Color
+        val colorIndex = Random.nextInt(256)
+        b.color = _palette.getInterpolatedInt(colorIndex)
+        b.alpha = 100 + Random.nextInt(100) // Semi-transparent
+        
+        return b
     }
 }

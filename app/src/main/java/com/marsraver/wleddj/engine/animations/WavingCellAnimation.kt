@@ -1,96 +1,103 @@
 package com.marsraver.wleddj.engine.animations
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
-import com.marsraver.wleddj.engine.math.MathUtils
-import kotlin.math.sin
+import android.graphics.Paint
+import android.graphics.Rect
+import com.marsraver.wleddj.engine.Animation
+import com.marsraver.wleddj.engine.color.Palette
+import com.marsraver.wleddj.engine.color.Palettes
 import kotlin.math.cos
-import kotlin.math.PI
+import kotlin.math.sin
 
 /**
- * Waving Cell animation - heat palette waves animated with sinusoidal motion.
- * Migrated to WledDj.
+ * Waving Cell Animation - High Res Interference Cells.
+ * Recreates the original cellular wrapping pattern using a high-res plasma field.
  */
-import com.marsraver.wleddj.engine.color.Palettes
+class WavingCellAnimation : Animation {
 
-class WavingCellAnimation : BasePixelAnimation() {
+    private var _palette: Palette = Palettes.get("Heat") ?: Palettes.get("Rainbow") ?: Palettes.getDefault()
+    override var currentPalette: Palette?
+        get() = _palette
+        set(value) { if (value != null) _palette = value }
 
     override fun supportsPalette(): Boolean = true
 
-    private var timeValue: Double = 0.0
-
-    override fun onInit() {
-        timeValue = 0.0
-        currentPalette = Palettes.get("Heat")
+    // State
+    // Render to fixed resolution for consistent "Cell" density regardless of screen size
+    // and for performance. 
+    private val RENDER_W = 100
+    private val RENDER_H = 100
+    
+    private var buffer: Bitmap? = null
+    private val paint = Paint().apply { 
+        isAntiAlias = true 
+        isFilterBitmap = true // Bilinear scaling for smooth "glowing" cells
     }
+    private val destRect = Rect()
+    
+    // Params
+    private var paramSpeed: Int = 128
+    
+    private var timeSeconds: Double = 0.0
 
-    override fun update(now: Long): Boolean {
-        timeValue = now / 1_000_000.0 / 100.0
-        
-        val energy = 1.0
-        val brightnessScale = 1.0
-
-        val t = timeValue
-        
-        for (y in 0 until height) {
-             val inner = sin8(y * 5.0 + t * 5.0 * energy)
-             val vertical = cos8(y * 10.0 * energy)
-             
-             for (x in 0 until width) {
-                  val wave = sin8(x * 10.0 + inner * energy)
-                  
-                  // Index for heat palette
-                  var index = wave * energy + vertical * (0.7 + energy * 0.3) + t
-                  index = wrapToPaletteRange(index)
-                  
-                  // Heat palette simulation
-                  val color = getColorFromPalette(index.toInt().coerceIn(0, 255))
-                  
-                  // Brightness scale?
-                  // Just set
-                  setPixelColor(x, y, color)
-             }
+    override fun draw(canvas: Canvas, width: Float, height: Float) {
+        // 1. Init Buffer
+        if (buffer == null) {
+            buffer = Bitmap.createBitmap(RENDER_W, RENDER_H, Bitmap.Config.ARGB_8888)
         }
-        return true
-    }
-
-    private fun heatColor(v: Int): Int {
-        // Simple HeatColor approx
-        // 0..255
-        // 0-85: Red increases
-        // 85-170: Green increases (Yellow)
-        // 170-255: Blue increases (White)
+        val buf = buffer ?: return
         
-        var r = 0; var g = 0; var b = 0
-        if (v < 85) {
-            r = v * 3
-        } else if (v < 170) {
-            r = 255
-            g = (v - 85) * 3
-        } else {
-            r = 255
-            g = 255
-            b = (v - 170) * 3
+        // 2. Update
+        val speed = 0.05 + (paramSpeed / 255.0) * 0.15
+        timeSeconds += speed
+        val t = timeSeconds
+        
+        // 3. Render Interference Field (The "Cells")
+        // Math based on original WavingCell:
+        // sin8(x + sin8(y + t)) ...
+        
+        val pixels = IntArray(RENDER_W * RENDER_H)
+        
+        // Frequencies adjusted to match original "Magnified" look
+        // Original: ~0.6 cycles per screen. 
+        // We want ~0.6 * 2PI = 3.7 radians over 100 pixels -> ~0.04
+        val freqY = 0.05
+        val freqX = 0.05
+        
+        for (y in 0 until RENDER_H) {
+            // inner = sin(y + t)
+            val inner = sin(y * freqY + t) * 2.0 // Amplitude determines warping amount
+            
+            // vertical term for variation
+            val vert = cos(y * freqY * 2.0)
+            
+            for (x in 0 until RENDER_W) {
+                // wave = sin(x + inner)
+                val wave = sin(x * freqX + inner)
+                
+                // Color Index calculation
+                // Combine wave value + vertical variation + time for cycling
+                // Map [-2..2] range to [0..255]
+                
+                val rawIndex = (wave + vert) * 128 + (t * 20)
+                val index = rawIndex.toInt() % 256
+                
+                // Lookup color
+                pixels[y * RENDER_W + x] = _palette.getInterpolatedInt(index)
+            }
         }
-        return Color.rgb(r.coerceIn(0, 255), g.coerceIn(0, 255), b.coerceIn(0, 255))
+        
+        buf.setPixels(pixels, 0, RENDER_W, 0, 0, RENDER_W, RENDER_H)
+        
+        // 4. Draw Scaled
+        destRect.set(0, 0, width.toInt(), height.toInt())
+        canvas.drawBitmap(buf, null, destRect, paint)
     }
 
-    private fun sin8(theta: Double): Double {
-        var angle = theta % 256.0
-        if (angle < 0) angle += 256.0
-        val radians = angle / 256.0 * 2.0 * PI
-        return (sin(radians) + 1.0) * 127.5
-    }
-
-    private fun cos8(theta: Double): Double {
-        var angle = theta % 256.0
-        if (angle < 0) angle += 256.0
-        val radians = angle / 256.0 * 2.0 * PI
-        return (cos(radians) + 1.0) * 127.5
-    }
-
-    private fun wrapToPaletteRange(value: Double): Double {
-        var result = value % 256.0
-        if (result < 0) result += 256.0
-        return result
+    override fun destroy() {
+        buffer?.recycle()
+        buffer = null
     }
 }

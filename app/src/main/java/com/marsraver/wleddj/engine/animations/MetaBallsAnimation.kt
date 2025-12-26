@@ -1,84 +1,145 @@
 package com.marsraver.wleddj.engine.animations
 
-import android.graphics.Color
-import com.marsraver.wleddj.engine.math.MathUtils
-import kotlin.math.abs
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Rect
+import com.marsraver.wleddj.engine.Animation
+import com.marsraver.wleddj.engine.color.Palette
+import com.marsraver.wleddj.engine.color.Palettes
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * MetaBalls animation - Blob-like effect with 3 moving points
- * Migrated to WledDj.
+ * MetaBalls Animation - High Res Lava Lamp.
+ * Smooth metabolic field rendered as a shader.
  */
-class MetaBallsAnimation : BasePixelAnimation() {
+class MetaBallsAnimation : Animation {
+
+    private var _palette: Palette = Palettes.get("Plasma") ?: Palettes.get("Rainbow") ?: Palettes.getDefault()
+    override var currentPalette: Palette?
+        get() = _palette
+        set(value) { if (value != null) _palette = value }
 
     override fun supportsPalette(): Boolean = true
 
-    private var startTimeNs: Long = 0L
-
-    override fun onInit() {
-        startTimeNs = System.nanoTime()
+    // State
+    private val RENDER_W = 80
+    private val RENDER_H = 80
+    
+    private var buffer: Bitmap? = null
+    private val paint = Paint().apply { 
+        isAntiAlias = true 
+        isFilterBitmap = true // Bilinear scaling for smooth goo
     }
+    private val destRect = Rect()
 
-    override fun update(now: Long): Boolean {
-        if (startTimeNs == 0L) startTimeNs = System.nanoTime()
-        val timeMs = (System.nanoTime() - startTimeNs) / 1_000_000
+    // Balls
+    private data class Ball(
+        var x: Float, 
+        var y: Float, 
+        var radius: Float,
+        var speedX: Float,
+        var speedY: Float
+    )
+    private val balls = mutableListOf<Ball>()
 
-        // Speed: 0.25f * (1+(speed>>6))
-        val speedFactor = 0.25f * (1 + (paramSpeed shr 6))
-        val timeValue = (timeMs * speedFactor).toInt()
+    // Params
+    private var paramSpeed: Int = 128
+    private var timeSeconds: Double = 0.0
 
-        // Get 2 random moving points using perlin8
-        // We simulate perlin8(t, c, c) using MathUtils.inoise8(t, c)
-        // Adjust inputs to map to inoise8 expectations
-        val x2 = MathUtils.map(MathUtils.inoise8(timeValue, 25355 + 685), 0, 255, 0, width - 1)
-        val y2 = MathUtils.map(MathUtils.inoise8(timeValue, 355 + 11685), 0, 255, 0, height - 1)
-
-        val x3 = MathUtils.map(MathUtils.inoise8(timeValue, 55355 + 6685), 0, 255, 0, width - 1)
-        val y3 = MathUtils.map(MathUtils.inoise8(timeValue, 25355 + 22685), 0, 255, 0, height - 1)
-
-        // One Lissajou function
-        val x1 = MathUtils.beatsin8((23 * speedFactor).toInt(), 0, width - 1, timeMs)
-        val y1 = MathUtils.beatsin8((28 * speedFactor).toInt(), 0, height - 1, timeMs)
-
-        for (y in 0 until height) {
-            for (x in 0 until width) {
-                // Calculate distances of the 3 points from actual pixel
-                // Point 1 (Lissajou) - 2x weight
-                var dx = abs(x - x1)
-                var dy = abs(y - y1)
-                var dist = 2 * sqrt(((dx * dx) + (dy * dy)).toDouble()).toInt()
-
-                // Point 2 (Perlin)
-                dx = abs(x - x2)
-                dy = abs(y - y2)
-                dist += sqrt(((dx * dx) + (dy * dy)).toDouble()).toInt()
-
-                // Point 3 (Perlin)
-                dx = abs(x - x3)
-                dy = abs(y - y3)
-                dist += sqrt(((dx * dx) + (dy * dy)).toDouble()).toInt()
-
-                // Inverse result
-                val colorVal = if (dist > 0) 1000 / dist else 255
-
-                // Map color between thresholds
-                if (colorVal > 0 && colorVal < 60) {
-                    val paletteIndex = MathUtils.map(colorVal * 9, 9, 531, 0, 255)
-                    // Use palette or fallback
-                    // Use palette
-                    val pixelColor = getColorFromPalette(paletteIndex)
-                    setPixelColor(x, y, pixelColor)
-                } else {
-                    setPixelColor(x, y, Color.BLACK)
-                }
+    override fun draw(canvas: Canvas, width: Float, height: Float) {
+        // 1. Init
+        if (buffer == null) {
+            buffer = Bitmap.createBitmap(RENDER_W, RENDER_H, Bitmap.Config.ARGB_8888)
+            // Create balls
+            balls.clear()
+            repeat(5) {
+                balls.add(Ball(
+                    x = Math.random().toFloat() * RENDER_W,
+                    y = Math.random().toFloat() * RENDER_H,
+                    radius = 8f + Math.random().toFloat() * 10f, // Influence radius
+                    speedX = 0f, 
+                    speedY = 0f
+                ))
             }
         }
+        val buf = buffer ?: return
+        
+        // 2. Update Balls (Lissajous/Sine motion for smooth looping)
+        val speed = 0.02 + (paramSpeed / 255.0) * 0.05
+        timeSeconds += speed
+        val t = timeSeconds
+        
+        balls.forEachIndexed { i, ball ->
+            // Lissajous-ish motion
+            val f1 = 0.5 + (i * 0.1)
+            val f2 = 0.7 + (i * 0.13)
+            
+            // Map -1..1 to 0..W
+            val nx = sin(t * f1 + i) 
+            val ny = cos(t * f2 + i * 2)
+            
+            ball.x = (RENDER_W / 2f) + nx.toFloat() * (RENDER_W * 0.4f)
+            ball.y = (RENDER_H / 2f) + ny.toFloat() * (RENDER_H * 0.4f)
+            
+            // Breathing radius?
+            ball.radius = 10f + sin(t * 2.0 + i).toFloat() * 3f
+        }
+        
+        // 3. Render Field
+        val pixels = IntArray(RENDER_W * RENDER_H)
+        
+        for (y in 0 until RENDER_H) {
+            for (x in 0 until RENDER_W) {
+                var sum = 0.0f
+                
+                // Metabolic potential formula: Sum(Radius / Distance)
+                // Or Standard: Sum(Radius^2 / Distance^2)
+                // Let's use R / D for softer falloff, or R^2 / D^2 for sharper blobs
+                
+                for (b in balls) {
+                    val dx = x - b.x
+                    val dy = y - b.y
+                    // Distance sq
+                    val d2 = dx*dx + dy*dy
+                    // Avoid div by zero
+                    if (d2 < 1.0f) {
+                        sum += 100f // clamped High value
+                    } else {
+                        // R^2 / D^2
+                        sum += (b.radius * b.radius) / d2
+                    }
+                }
+                
+                // Sum dictates the "heat" at this pixel.
+                // Thresholding creates the blob edge.
+                
+                // We want a smooth gradient though.
+                // Map sum to Palette Index.
+                // sum typically 0..5+ near centers.
+                // Let's map 0..2.0 -> 0..255
+                
+                val index = (sum * 80).toInt().coerceIn(0, 255)
+                
+                // "Lava Lamp" look:
+                // Background is usually dark (index 0). 
+                // Blobs are bright.
+                
+                pixels[y * RENDER_W + x] = _palette.getInterpolatedInt(index)
+            }
+        }
+        
+        buf.setPixels(pixels, 0, RENDER_W, 0, 0, RENDER_W, RENDER_H)
+        
+        // 4. Draw Scaled
+        destRect.set(0, 0, width.toInt(), height.toInt())
+        canvas.drawBitmap(buf, null, destRect, paint)
+    }
 
-        // Show the 3 points in white (optional, as per source)
-        setPixelColor(x1, y1, Color.WHITE)
-        setPixelColor(x2, y2, Color.WHITE)
-        setPixelColor(x3, y3, Color.WHITE)
-
-        return true
+    override fun destroy() {
+        buffer?.recycle()
+        buffer = null
     }
 }

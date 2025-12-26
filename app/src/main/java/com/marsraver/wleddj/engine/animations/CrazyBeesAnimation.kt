@@ -1,120 +1,173 @@
 package com.marsraver.wleddj.engine.animations
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
-import com.marsraver.wleddj.engine.math.MathUtils
-import kotlin.math.min
-import kotlin.math.abs
+import android.graphics.Paint
+import android.graphics.Rect
+import com.marsraver.wleddj.engine.Animation
+import com.marsraver.wleddj.engine.color.Palette
+import com.marsraver.wleddj.engine.color.Palettes
 import kotlin.random.Random
 
 /**
  * Crazy Bees animation - Bees flying to random targets.
- * Migrated to WledDj.
+ * Migrated to Canvas (Vector) rendering for high-res smoothness.
  */
-class CrazyBeesAnimation : BasePixelAnimation() {
+class CrazyBeesAnimation : Animation {
+
+    // --- Animation Interface ---
+    private var _palette: Palette = Palettes.getDefault()
+    override var currentPalette: Palette?
+        get() = _palette
+        set(value) { if (value != null) _palette = value }
+
+    override fun supportsPalette(): Boolean = false // Random colors used internally
+
+    // --- State ---
+    private var buffer: Bitmap? = null
+    private var bufferCanvas: Canvas? = null
+    
+    // Params
+    private var paramSpeed: Int = 128
+    
+    // Tools
+    private val paint = Paint().apply { isAntiAlias = true }
+    private val fadePaint = Paint().apply { 
+        color = Color.BLACK 
+        alpha = 40 // Trail persistence (0-255). Lower = longer trails.
+    }
+    private val clearRect = Rect()
 
     private class Bee {
-        var posX: Int = 0
-        var posY: Int = 0
-        var aimX: Int = 0
-        var aimY: Int = 0
+        var x: Float = 0f
+        var y: Float = 0f
+        var aimX: Float = 0f
+        var aimY: Float = 0f
         var color: Int = 0
-        var deltaX: Int = 0
-        var deltaY: Int = 0
-        var signX: Int = 1
-        var signY: Int = 1
-        var error: Int = 0
-
-        fun setAim(w: Int, h: Int, random: Random) {
-            aimX = random.nextInt(w)
-            aimY = random.nextInt(h)
-            // Always use random color
-            color = android.graphics.Color.HSVToColor(floatArrayOf(random.nextFloat() * 360f, 1f, 1f))
+        
+        fun pickTarget(w: Float, h: Float, random: Random) {
+            aimX = random.nextFloat() * w
+            aimY = random.nextFloat() * h
             
-            deltaX = abs(aimX - posX)
-            deltaY = abs(aimY - posY)
-            signX = if (posX < aimX) 1 else -1
-            signY = if (posY < aimY) 1 else -1
-            error = deltaX - deltaY
+            // Random color
+            color = android.graphics.Color.HSVToColor(floatArrayOf(random.nextFloat() * 360f, 1f, 1f))
         }
-    }
-
-    private lateinit var bees: Array<Bee>
-    private var numBees: Int = 0
-    private var lastUpdateTime: Long = 0
-    private var updateInterval: Long = 0
-
-    private val random = Random.Default
-    private val MAX_BEES = 5
-
-    override fun onInit() {
-        lastUpdateTime = 0
-
-        numBees = min(MAX_BEES, (width * height) / 256 + 1)
-        bees = Array(numBees) { Bee() }
-
-        for (i in 0 until numBees) {
-            val bee = bees[i]
-            bee.posX = random.nextInt(width)
-            bee.posY = random.nextInt(height)
-            bee.setAim(width, height, random)
-        }
-
-        // speedFactor: (speed shr 4) + 1. 
-        // WledFx used 16ms base * 16 / speedFactor?
-        // Let's approximate update interval.
-        val speedFactor = (paramSpeed shr 4) + 1
-        updateInterval = 16_000_000L * 16L / speedFactor
-    }
-
-    override fun update(now: Long): Boolean {
-        if (now - lastUpdateTime < updateInterval) return true
-        lastUpdateTime = now
-
-        val fadeAmount = 32
-        val blurAmount = 10
-        fadeToBlackBy(fadeAmount)
-        blur2d(blurAmount)
-
-        for (i in 0 until numBees) {
-            val bee = bees[i]
-
-            val flowerColor = bee.color
-            // Draw flower (cross)
-            addPixelColor(bee.aimX + 1, bee.aimY, flowerColor)
-            addPixelColor(bee.aimX, bee.aimY + 1, flowerColor)
-            addPixelColor(bee.aimX - 1, bee.aimY, flowerColor)
-            addPixelColor(bee.aimX, bee.aimY - 1, flowerColor)
-
-            if (bee.posX != bee.aimX || bee.posY != bee.aimY) {
-                // Draw bee (slightly dimmer? Or just rely on standard)
-                // WledFx used brightness 200 for bee.
-                // We'll just use the color directly or slightly dimmed if needed.
-                val beeColor = bee.color 
-                setPixelColor(bee.posX, bee.posY, beeColor)
-
-                val error2 = bee.error * 2
-                if (error2 > -bee.deltaY) {
-                    bee.error -= bee.deltaY
-                    bee.posX += bee.signX
-                }
-                if (error2 < bee.deltaX) {
-                    bee.error += bee.deltaX
-                    bee.posY += bee.signY
-                }
+        
+        fun update(w: Float, h: Float, speed: Float) {
+            val dx = aimX - x
+            val dy = aimY - y
+            val dist = kotlin.math.sqrt(dx*dx + dy*dy)
+            
+            if (dist < speed) {
+                // Reached target
+                x = aimX
+                y = aimY
+                pickTarget(w, h, Random.Default)
             } else {
-                bee.setAim(width, height, random)
+                // Move towards target
+                x += (dx / dist) * speed
+                y += (dy / dist) * speed
             }
         }
-        return true
     }
 
-    private fun addPixelColor(x: Int, y: Int, color: Int) {
-        if (x in 0 until width && y in 0 until height) {
-            val current = getPixelColor(x, y)
-             val r = min(Color.red(current) + Color.red(color), 255)
-             val g = min(Color.green(current) + Color.green(color), 255)
-             val b = min(Color.blue(current) + Color.blue(color), 255)
-             setPixelColor(x, y, Color.rgb(r, g, b))
+    private val bees = mutableListOf<Bee>()
+    private val maxBees = 5
+    
+    override fun draw(canvas: Canvas, width: Float, height: Float) {
+        // 1. Manage Buffer
+        val w = width.toInt().coerceAtLeast(1)
+        val h = height.toInt().coerceAtLeast(1)
+        
+        if (buffer == null || buffer?.width != w || buffer?.height != h) {
+            buffer?.recycle()
+            buffer = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            bufferCanvas = Canvas(buffer!!)
+            
+            // Clear new buffer
+            bufferCanvas?.drawColor(Color.BLACK)
+            
+            // Bees need to adjust to new bounds if resize happened
+            if (bees.isNotEmpty()) {
+                // If drastic resize, respawn. If minor, keep.
+                // For simplicity, just let them fly.
+            }
         }
+        
+        val bufCanvas = bufferCanvas ?: return
+        
+        // 2. Initialize Bees if needed
+        if (bees.isEmpty()) {
+            repeat(maxBees) {
+                bees.add(Bee().apply {
+                    x = Random.nextFloat() * width
+                    y = Random.nextFloat() * height
+                    pickTarget(width, height, Random.Default)
+                })
+            }
+        }
+        
+        // 3. Fade Trails
+        // Draw a semi-transparent black rect over the whole buffer
+        clearRect.set(0, 0, w, h)
+        bufCanvas.drawRect(clearRect, fadePaint)
+        
+        // 4. Update and Draw Bees
+        
+        // Speed Calculation:
+        // Base = 5f. Max = 20f. (Pixels per frame)
+        // Adjust this to taste.
+        // paramSpeed: 0..255
+        val speed = 2f + (paramSpeed / 255f) * 15f
+        
+        for (bee in bees) {
+            bee.update(width, height, speed)
+            
+            // Draw Flower (Target)
+            // Draw Flower (Target)
+            // Draw Flower (Target)
+            paint.color = bee.color
+            paint.style = Paint.Style.FILL
+            
+            // Draw 8 elongated petals
+            val petalLength = 12f
+            val petalWidth = 5f
+            val centerOffset = 5f
+            
+            for (i in 0 until 8) {
+                bufCanvas.save()
+                val angle = i * 45f
+                bufCanvas.rotate(angle, bee.aimX, bee.aimY)
+                // Draw oval relative to center
+                // Oval extends from offset outwards
+                val oval = android.graphics.RectF(
+                    bee.aimX - petalWidth/2, 
+                    bee.aimY + centerOffset, 
+                    bee.aimX + petalWidth/2, 
+                    bee.aimY + centerOffset + petalLength
+                )
+                bufCanvas.drawOval(oval, paint)
+                bufCanvas.restore()
+            }
+            
+            // Center Dot (White)
+            paint.color = Color.WHITE 
+            bufCanvas.drawCircle(bee.aimX, bee.aimY, 5f, paint)
+            
+            // Draw Bee
+            paint.style = Paint.Style.FILL
+            val beeRadius = 6f
+            bufCanvas.drawCircle(bee.x, bee.y, beeRadius, paint)
+        }
+        
+        // 5. Blit Buffer to Screen
+        canvas.drawBitmap(buffer!!, 0f, 0f, null)
+    }
+
+    override fun destroy() {
+        buffer?.recycle()
+        buffer = null
+        bufferCanvas = null
     }
 }

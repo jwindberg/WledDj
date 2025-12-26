@@ -1,132 +1,162 @@
 package com.marsraver.wleddj.engine.animations
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
-import com.marsraver.wleddj.engine.math.MathUtils
-import kotlin.math.min
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.Rect
+import com.marsraver.wleddj.engine.Animation
+import com.marsraver.wleddj.engine.color.Palette
+import com.marsraver.wleddj.engine.color.Palettes
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.random.Random
 
 /**
- * Space Ships animation - 2D spaceships
- * Migrated to WledDj.
+ * Space Ships animation - Vector based.
+ * Ships fly with steering behavior and leave trails.
  */
-import com.marsraver.wleddj.engine.color.Palettes
+class SpaceShipsAnimation : Animation {
 
-class SpaceShipsAnimation : BasePixelAnimation() {
+    private var _palette: Palette = Palettes.get("Rainbow") ?: Palettes.getDefault()
+    override var currentPalette: Palette?
+        get() = _palette
+        set(value) { if (value != null) _palette = value }
 
     override fun supportsPalette(): Boolean = true
 
-    private var smear: Boolean = false  
-    private var direction: Int = 0
-    private var nextDirectionChange: Long = 0L
-    private val random = Random.Default
-    private var startTimeNs: Long = 0L
-
-    override fun onInit() {
-        startTimeNs = System.nanoTime()
-        nextDirectionChange = 0L
-        direction = random.nextInt(8)
-        currentPalette = Palettes.get("Rainbow")
+    // State
+    private var buffer: Bitmap? = null
+    private var bufferCanvas: Canvas? = null
+    private val paint = Paint().apply { isAntiAlias = true }
+    private val fadePaint = Paint().apply { 
+        color = Color.BLACK 
+        alpha = 25 // Trails length
     }
+    private val shipPath = Path()
+    private val clearRect = Rect()
 
-    override fun update(now: Long): Boolean {
-        if (startTimeNs == 0L) startTimeNs = now
-        val timeMs = (now - startTimeNs) / 1_000_000
-
-        val tb = timeMs shr 12
-        if (tb > nextDirectionChange) {
-            var newDir = direction + (random.nextInt(3) - 1)
-            if (newDir > 7) newDir = 0
-            else if (newDir < 0) newDir = 7
-            direction = newDir
-            nextDirectionChange = tb + random.nextInt(4)
-        }
-
-        // Fade to black based on speed
-        val fadeAmount = MathUtils.map(paramSpeed, 0, 255, 248, 16)
-        fadeToBlackBy(fadeAmount)
-
-        // Move buffer (SHIFT)
-        // If speed is high, maybe move more? Original just called move(direction, 1) every frame.
-        // We'll mimic that.
-        move(direction, 1)
-
-
-        for (i in 0 until 8) {
-            val x = MathUtils.beatsin8(12 + i, 2, width - 3, timeMs)
-            val y = MathUtils.beatsin8(15 + i, 2, height - 3, timeMs)
-            val colorIndex = MathUtils.beatsin8(12 + i, 0, 255, timeMs)
+    private class Ship {
+        var x: Float = 0f
+        var y: Float = 0f
+        var vx: Float = 0f
+        var vy: Float = 0f
+        
+        var color: Int = Color.WHITE
+        var wanderTheta: Float = 0f
+        
+        fun update(w: Float, h: Float, speed: Float) {
+            // Steering / Wander
+            // Change wander angle slightly
+            wanderTheta += (Random.nextFloat() - 0.5f) * 0.5f
             
-            val color = getColorFromPalette(colorIndex)
-
-            addPixelColor(x, y, color)
-
-            if (smear) {
-                addPixelColor(x + 1, y, color)
-                addPixelColor(x - 1, y, color)
-                addPixelColor(x, y + 1, color)
-                addPixelColor(x, y - 1, color)
-            }
-        }
-
-        val blurAmount = paramIntensity shr 3
-        if (blurAmount > 0) blur2d(blurAmount)
-
-        return true
-    }
-
-    private fun move(dir: Int, amount: Int) {
-        if (amount <= 0) return
-
-        val temp = pixels.clone() // Scratch copy
-
-        for (x in 0 until width) {
-            for (y in 0 until height) {
-                // Determine source coordinates that shift TO here
-                // If dir 0 is right (x+amount), then to get new value at x,y we read from x-amount?
-                // Original: 
-                /*
-                 val (dx, dy) = when (dir) { ... } // delta
-                 srcX = x - dx
-                 srcY = y - dy
-                 */
-                
-                // Assuming typical direction map:
-                // 0: right (+1, 0)
-                // 1: down-right (+1, +1)
-                // 2: down (0, +1)
-                // etc.
-                
-                var dx=0; var dy=0
-                when (dir) {
-                    0 -> { dx=amount; dy=0 }
-                    1 -> { dx=amount; dy=amount }
-                    2 -> { dx=0; dy=amount }
-                    3 -> { dx=-amount; dy=amount }
-                    4 -> { dx=-amount; dy=0 }
-                    5 -> { dx=-amount; dy=-amount }
-                    6 -> { dx=0; dy=-amount }
-                    7 -> { dx=amount; dy=-amount }
-                }
-
-                val srcX = x - dx
-                val srcY = y - dy
-
-                if (srcX in 0 until width && srcY in 0 until height) {
-                    setPixelColor(x, y, temp[srcY * width + srcX])
-                } else {
-                    setPixelColor(x, y, Color.BLACK)
-                }
-            }
+            // Calculate velocity vector from angle
+            val speedX = cos(wanderTheta) * speed
+            val speedY = sin(wanderTheta) * speed
+            
+            // Softly steer towards new velocity
+            vx += (speedX - vx) * 0.1f
+            vy += (speedY - vy) * 0.1f
+            
+            x += vx
+            y += vy
+            
+            if (x < 0) x = w
+            if (x > w) x = 0f
+            if (y < 0) y = h
+            if (y > h) y = 0f
         }
     }
+
+    private val ships = mutableListOf<Ship>()
+    private val SHIP_COUNT = 8
     
-    private fun addPixelColor(x: Int, y: Int, color: Int) {
-        if (x in 0 until width && y in 0 until height) {
-            val current = getPixelColor(x, y)
-             val r = min(Color.red(current) + Color.red(color), 255)
-             val g = min(Color.green(current) + Color.green(color), 255)
-             val b = min(Color.blue(current) + Color.blue(color), 255)
-             setPixelColor(x, y, Color.rgb(r, g, b))
+    // Params
+    private var paramSpeed: Int = 128
+
+    override fun draw(canvas: Canvas, width: Float, height: Float) {
+        val w = width.toInt().coerceAtLeast(1)
+        val h = height.toInt().coerceAtLeast(1)
+        
+        // 1. Buffer Management
+        if (buffer == null || buffer?.width != w || buffer?.height != h) {
+            buffer?.recycle()
+            buffer = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            bufferCanvas = Canvas(buffer!!)
+            
+            // Clear
+            bufferCanvas?.drawColor(Color.BLACK)
+            
+            ships.clear()
         }
+        
+        val bufCanvas = bufferCanvas ?: return
+        
+        // 2. Init Ships
+        if (ships.isEmpty()) {
+            repeat(SHIP_COUNT) {
+                ships.add(Ship().apply {
+                    x = Random.nextFloat() * width
+                    y = Random.nextFloat() * height
+                    vx = (Random.nextFloat() - 0.5f) * 5f
+                    vy = (Random.nextFloat() - 0.5f) * 5f
+                    wanderTheta = Random.nextFloat() * 6.28f
+                })
+            }
+        }
+        
+        // 3. Fade Trails
+        clearRect.set(0, 0, w, h)
+        bufCanvas.drawRect(clearRect, fadePaint)
+        
+        // 4. Update & Draw Ships
+        val speed = 2f + (paramSpeed / 255f) * 10f
+        val time = System.currentTimeMillis()
+        
+        ships.forEachIndexed { index, ship ->
+            ship.update(width, height, speed)
+            
+            // Color from Palette
+            // Cycle colors over time + index offset
+            val colorIndex = (time / 20 + index * 30).toInt() % 256
+            ship.color = _palette.getInterpolatedInt(colorIndex)
+            
+            // Orientation
+            val angle = atan2(ship.vy, ship.vx) * (180f / Math.PI.toFloat()) + 90f
+            
+            bufCanvas.save()
+            bufCanvas.translate(ship.x, ship.y)
+            bufCanvas.rotate(angle)
+            
+            // Draw Ship (Triangle)
+            // Tip at (0, -10), Base at (-6, 6) and (6, 6)
+            shipPath.reset()
+            shipPath.moveTo(0f, -12f)
+            shipPath.lineTo(-7f, 8f)
+            shipPath.lineTo(0f, 5f) // Indent at engine
+            shipPath.lineTo(7f, 8f)
+            shipPath.close()
+            
+            paint.style = Paint.Style.FILL
+            paint.color = ship.color
+            bufCanvas.drawPath(shipPath, paint)
+            
+            // Engine Glow
+            paint.color = Color.CYAN // Or Orange?
+            bufCanvas.drawCircle(0f, 7f, 3f, paint)
+            
+            bufCanvas.restore()
+        }
+        
+        // 5. Blit
+        canvas.drawBitmap(buffer!!, 0f, 0f, null)
+    }
+
+    override fun destroy() {
+        buffer?.recycle()
+        buffer = null
+        bufferCanvas = null
     }
 }

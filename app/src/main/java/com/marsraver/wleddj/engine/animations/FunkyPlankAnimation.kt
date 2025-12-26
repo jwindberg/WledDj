@@ -1,96 +1,128 @@
 package com.marsraver.wleddj.engine.animations
 
+import android.graphics.Canvas
 import android.graphics.Color
-import com.marsraver.wleddj.engine.math.MathUtils
+import android.graphics.Paint
+import android.graphics.RectF
+import com.marsraver.wleddj.engine.Animation
 import com.marsraver.wleddj.engine.audio.FftMeter
+import com.marsraver.wleddj.engine.color.Palette
+import com.marsraver.wleddj.engine.color.Palettes
 
 /**
- * Funky Plank animation - 2D scrolling FFT visualization.
- * Migrated to WledDj.
+ * Funky Plank Animation - Spectral Waterfall.
+ * Smoothly scrolling history of FFT bands.
  */
-class FunkyPlankAnimation : BasePixelAnimation() {
+class FunkyPlankAnimation : Animation {
+
+    private var _palette: Palette = Palettes.get("Rainbow") ?: Palettes.getDefault()
+    override var currentPalette: Palette?
+        get() = _palette
+        set(value) { if (value != null) _palette = value }
 
     override fun supportsPalette(): Boolean = true
 
+    // State
     private var fftMeter: FftMeter? = null
-    private var lastSecondHand: Int = -1
-    private var startTimeNs: Long = 0L
-    private var noiseThreshold: Int = 10 
+    private var isInit = false
+    
+    // History
+    // Store arrays of floats (normalized 0..1)? Or Ints (0..255)
+    // Let's store Ints 0..255 for simplicity with colors
+    private val fftHistory = ArrayDeque<IntArray>()
+    private val HISTORY_SIZE = 100 // How many rows to keep
+    private val NUM_BANDS = 16
+    
+    private val paint = Paint().apply { isAntiAlias = false } // Rects don't need AA if packed tight
+    private val rect = RectF()
 
-    override fun onInit() {
-        lastSecondHand = -1
-        startTimeNs = System.nanoTime()
-        fftMeter = FftMeter(bands = 16)
-        // Default paramSpeed/Intensity handled by Base
+    // Params
+    private var paramSpeed: Int = 128
+    private var paramIntensity: Int = 128
+    
+    private var lastUpdate: Long = 0
+
+    private fun init() {
+        if (!isInit) {
+            fftMeter = FftMeter(bands = NUM_BANDS)
+            isInit = true
+        }
     }
 
-    override fun update(now: Long): Boolean {
-        if (startTimeNs == 0L) startTimeNs = now
-        // Map custom1 (assuming standard params, but user code had custom1)
-        // We'll use paramIntensity to map number of bands? Or just fixed?
-        // Original: map(custom1, 0, 255, 1, 16)
-        // Let's use 255 (full) as default or map paramIntensity? 
-        // Let's map paramIntensity to number of bands used for color cycling.
-        val numBands = map(paramIntensity, 0, 255, 1, 16).coerceIn(1, 16)
-
-        val micros = (now - startTimeNs) / 1_000L
-        val speedDivisor = (256 - paramSpeed).coerceAtLeast(1)
-        val secondHand = ((micros / speedDivisor / 500 + 1) % 64).toInt()
-
-        if (secondHand != lastSecondHand) {
-            lastSecondHand = secondHand
-            val fftBands = fftMeter?.getNormalizedBands() ?: IntArray(16)
-
-            for (x in 0 until width) {
-                // We have 16 bands. Map x to bands.
-                val bandIndex = x % 16
-                val fftValue = fftBands.getOrElse(bandIndex) { 0 }
-                
-                val rgb = if (fftValue < noiseThreshold) {
-                    Color.BLACK
-                } else {
-                    val colorIndex = x % numBands
-                    // Map to 0-255 for palette
-                    val paletteIdx = (colorIndex * 255 / numBands.coerceAtLeast(1))
-                    val baseColor = getColorFromPalette(paletteIdx)
-                    
-                    val brightness = map(fftValue, noiseThreshold, 255, 10, 255).coerceIn(10, 255)
-                    
-                    // Scale brightness
-                    fadeColor(baseColor, 255 - brightness)
-                }
-                setPixelColor(x, 0, rgb)
+    override fun draw(canvas: Canvas, width: Float, height: Float) {
+        init()
+        
+        // Update History
+        val now = System.currentTimeMillis()
+        // Speed determines how often we sample a new line
+        // 0 -> Slow (every 100ms)
+        // 255 -> Fast (every 10ms)
+        val interval = 100 - (paramSpeed / 255f) * 90
+        
+        if (now - lastUpdate > interval) {
+            val bands = fftMeter?.getNormalizedBands() ?: IntArray(NUM_BANDS)
+            // Copy because getNormalizedBands might return same array reference (depends on impl)? 
+            // Checking FftMeter impl: it returns `outBuffer` clone or new array usually. 
+            // In typical Android Fft it reuses. Let's clone to be safe.
+            fftHistory.addFirst(bands.clone())
+            if (fftHistory.size > HISTORY_SIZE) {
+                fftHistory.removeLast()
             }
+            lastUpdate = now
         }
-
-        // Scroll up
-        for (i in height - 1 downTo 1) {
-            for (j in 0 until width) {
-                setPixelColor(j, i, getPixelColor(j, i - 1))
-            }
+        
+        // Clear
+        canvas.drawColor(Color.BLACK)
+        
+        // Draw Waterfall
+        // Rows go down? Or Up? 
+        // Let's scroll Down (Newest at top).
+        
+        val rowHeight = height / HISTORY_SIZE.toFloat()
+        // Or better: fit history to height? 
+        // If we want it to look "continuous", rowHeight should cover screen.
+        // Actually, let's fix row height calculation to ensure clean coverage.
+        
+        // Optimization: Draw rects
+        paint.style = Paint.Style.FILL
+        
+        fftHistory.forEachIndexed { rowIndex, bands ->
+             val y = rowIndex * rowHeight
+             val bandWidth = width / NUM_BANDS.toFloat()
+             
+             for (i in 0 until NUM_BANDS) {
+                 val mag = bands.getOrElse(i) { 0 } // 0..255 (normalized usually returns high values?)
+                 // Wait, getNormalizedBands usually returns something appropriate. 
+                 // Assuming 0..255-ish range from previous code usage.
+                 
+                 // Threshold
+                 if (mag > 10) {
+                     val x = i * bandWidth
+                     
+                     // Color:
+                     // Index in palette based on Band + Magnitude?
+                     // Or just Band?
+                     // Let's use Band + Time (scrolling color?) or Band + Mag.
+                     // FunkyPlank used: (colorIndex * 255 / numBands)
+                     
+                     val colorIdx = (i * 16) + (mag / 2)
+                     val color = _palette.getInterpolatedInt(colorIdx % 256)
+                     
+                     // Brightness based on mag
+                     // Just use Color but modulate alpha/brightness?
+                     // Palette handles color. Let's assume Palette color is bright enough.
+                     paint.color = color
+                     
+                     // Rect
+                     rect.set(x, y, x + bandWidth, y + rowHeight + 0.5f) // +0.5 to avoid gaps
+                     canvas.drawRect(rect, paint)
+                 }
+             }
         }
-        return true
     }
 
     override fun destroy() {
         fftMeter?.stop()
         fftMeter = null
-    }
-
-    private fun map(value: Int, fromLow: Int, fromHigh: Int, toLow: Int, toHigh: Int): Int {
-        val fromRange = (fromHigh - fromLow).toDouble()
-        val toRange = (toHigh - toLow).toDouble()
-        if (fromRange == 0.0) return toLow
-        val scaled = (value - fromLow) / fromRange
-        return (toLow + scaled * toRange).toInt().coerceIn(toLow, toHigh)
-    }
-    
-    private fun scaleColorBrightness(color: Int, brightness: Int): Int {
-        val factor = brightness / 255.0
-        return Color.rgb(
-            (Color.red(color) * factor).toInt(),
-            (Color.green(color) * factor).toInt(),
-            (Color.blue(color) * factor).toInt()
-        )
     }
 }

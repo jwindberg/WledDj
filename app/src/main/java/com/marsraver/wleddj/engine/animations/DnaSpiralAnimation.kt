@@ -1,106 +1,122 @@
 package com.marsraver.wleddj.engine.animations
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
-import com.marsraver.wleddj.engine.math.MathUtils
-import kotlin.math.*
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.Rect
+import com.marsraver.wleddj.engine.Animation
+import com.marsraver.wleddj.engine.color.Palette
+import com.marsraver.wleddj.engine.color.Palettes
+import kotlin.math.sin
+import kotlin.math.PI
 
 /**
- * DNA Spiral animation
- * Migrated to WledDj.
+ * DNA Spiral Animation - Vector Helix.
  */
-class DnaSpiralAnimation : BasePixelAnimation() {
+class DnaSpiralAnimation : Animation {
+
+    private var _palette: Palette = Palettes.get("Rainbow") ?: Palettes.getDefault()
+    override var currentPalette: Palette?
+        get() = _palette
+        set(value) { if (value != null) _palette = value }
 
     override fun supportsPalette(): Boolean = true
 
-    private var lastUpdateNs: Long = 0L
-    private var hueOffset: Int = 0
+    // State
+    private var buffer: Bitmap? = null
+    private var bufferCanvas: Canvas? = null
+    private val paint = Paint().apply { isAntiAlias = true }
+    private val fadePaint = Paint().apply { 
+        color = Color.BLACK 
+        alpha = 50 // Trails slightly
+    }
+    private val clearRect = Rect()
+
+    // Params
+    private var paramSpeed: Int = 128
     
-    private val FREQ = 6
-    private val PERIOD_SECONDS = 5.5
+    // Logic
+    private var timeSeconds: Double = 0.0
 
-    override fun onInit() {
-        lastUpdateNs = 0L
-        hueOffset = 0
-    }
-
-    override fun update(now: Long): Boolean {
-        if (lastUpdateNs == 0L) lastUpdateNs = now
-        fadeDown()
-
-        val timeSeconds = now / 1_000_000_000.0
-        val auxTime = timeSeconds * 0.85
-        val rows = height
-        val edgePadding = 1
-        val center = (width - 1) / 2.0
-        val amplitude = (width - 1 - edgePadding * 2) / 2.0
-
-        val timeSegment = (timeSeconds / 0.008).toInt()
-        for (row in 0 until rows) {
-            val basePhase = row * FREQ
-            val phase1 = basePhase
-            val phase2 = basePhase + 128
-
-            val p1 = center + sin(2 * PI * (timeSeconds / PERIOD_SECONDS + phase1 / 256.0)) * amplitude
-            val p2 = center + sin(2 * PI * (auxTime / PERIOD_SECONDS + phase1 / 256.0 + 0.5)) * amplitude
-            val q1 = center + sin(2 * PI * (timeSeconds / PERIOD_SECONDS + phase2 / 256.0)) * amplitude
-            val q2 = center + sin(2 * PI * (auxTime / PERIOD_SECONDS + phase2 / 256.0 + 0.5)) * amplitude
-
-            val x = ((p1 + p2) / 2.0).roundToInt().coerceIn(edgePadding, width - 1 - edgePadding)
-            val x1 = ((q1 + q2) / 2.0).roundToInt().coerceIn(edgePadding, width - 1 - edgePadding)
-
-            val hue = ((row * 128) / (rows.coerceAtLeast(2) - 1) + hueOffset) and 0xFF
-            val color = getColorFromPalette(hue)
-
-            if (((row + timeSegment) and 3) != 0) {
-                drawLine(x, x1, row, color, addDot = true, gradient = true)
-            }
+    override fun draw(canvas: Canvas, width: Float, height: Float) {
+        val w = width.toInt().coerceAtLeast(1)
+        val h = height.toInt().coerceAtLeast(1)
+        
+        // 1. Buffer (Optional for this one, but good for trails if we want them?
+        // Original didn't use trails much, just pure redraw or slight fade.
+        // Let's use buffer for smooth clearing/trails.
+        
+        if (buffer == null || buffer?.width != w || buffer?.height != h) {
+            buffer?.recycle()
+            buffer = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            bufferCanvas = Canvas(buffer!!)
+            bufferCanvas?.drawColor(Color.BLACK)
         }
-        hueOffset = (hueOffset + 3) and 0xFF
-        return true
-    }
-    
-    private fun drawLine(x0: Int, x1: Int, y: Int, rgb: Int, addDot: Boolean, gradient: Boolean) {
-        val clampedY = y.coerceIn(0, height - 1)
-        val start = x0.coerceIn(0, width - 1)
-        val end = x1.coerceIn(0, width - 1)
-        val steps = abs(end - start) + 1
-        for (step in 0 until steps) {
-            val t = step / (steps - 1.0).coerceAtLeast(1.0)
-            val x = lerp(start, end, t).roundToInt().coerceIn(0, width - 1)
-            val scale = if (gradient) (t * 255).roundToInt().coerceIn(0, 255) else 255
-            val scaled = scaleColorBrightness(rgb, scale)
-            addPixelColor(x, clampedY, scaled)
+        val bufCanvas = bufferCanvas ?: return
+        
+        // Fade
+        clearRect.set(0, 0, w, h)
+        // Strong fade to clear effectively, but leave slight blur
+        fadePaint.alpha = 80
+        bufCanvas.drawRect(clearRect, fadePaint)
+        
+        // 2. DNA Logic
+        val speed = (paramSpeed / 255.0) * 0.05
+        timeSeconds += speed
+        
+        val rowCount = 20 // Number of rungs
+        val rowHeight = height / rowCount
+        val center = width / 2f
+        val amplitude = width * 0.4f
+        
+        for (i in 0 until rowCount) {
+             val y = i * rowHeight + rowHeight/2
+             
+             // Phase
+             val phase = i * 0.5 + timeSeconds * 2.0
+             
+             // Two strands
+             val x1 = center + sin(phase) * amplitude
+             val x2 = center + sin(phase + PI) * amplitude
+             
+             // Draw Rung
+             paint.style = Paint.Style.STROKE
+             paint.strokeWidth = 4f
+             // Color based on height/index
+             val colorIndex = ((i * 10) + (timeSeconds * 50)).toInt() % 256
+             paint.color = _palette.getInterpolatedInt(colorIndex)
+             paint.alpha = 150
+             
+             bufCanvas.drawLine(x1.toFloat(), y, x2.toFloat(), y, paint)
+             
+             // Draw Nucleotides (Ends)
+             paint.style = Paint.Style.FILL
+             paint.alpha = 255
+             
+             // Size oscillates for 3D effect?
+             // Z-ordering simulation: if sin(phase) is positive -> front?
+             val z1 = kotlin.math.cos(phase) // deriv of sin is cos
+             val r1 = 8f + z1 * 3f
+             
+             val z2 = kotlin.math.cos(phase + PI)
+             val r2 = 8f + z2 * 3f
+             
+             bufCanvas.drawCircle(x1.toFloat(), y, r1.toFloat(), paint)
+             
+             // Second color
+             paint.color = _palette.getInterpolatedInt((colorIndex + 128) % 256)
+             bufCanvas.drawCircle(x2.toFloat(), y, r2.toFloat(), paint)
         }
-        if (addDot) {
-            val darkPurple = Color.rgb(72, 61, 139)
-            addPixelColor(start.coerceIn(0, width - 1), clampedY, darkPurple)
-            addPixelColor(end.coerceIn(0, width - 1), clampedY, Color.WHITE)
-        }
+        
+        // 3. Blit
+        canvas.drawBitmap(buffer!!, 0f, 0f, null)
     }
 
-    private fun fadeDown() {
-        // BasePixelAnimation pixels 1D
-        fadeToBlackBy(120) 
-    }
-
-    private fun addPixelColor(x: Int, y: Int, color: Int) {
-        if (x in 0 until width && y in 0 until height) {
-            val current = getPixelColor(x, y)
-             val r = min(Color.red(current) + Color.red(color), 255)
-             val g = min(Color.green(current) + Color.green(color), 255)
-             val b = min(Color.blue(current) + Color.blue(color), 255)
-             setPixelColor(x, y, Color.rgb(r, g, b))
-        }
-    }
-
-    private fun lerp(start: Int, end: Int, t: Double): Double = start + (end - start) * t
-    
-    private fun scaleColorBrightness(color: Int, brightness: Int): Int {
-        val factor = brightness / 255.0
-        return Color.rgb(
-            (Color.red(color) * factor).toInt(),
-            (Color.green(color) * factor).toInt(),
-            (Color.blue(color) * factor).toInt()
-        )
+    override fun destroy() {
+        buffer?.recycle()
+        buffer = null
+        bufferCanvas = null
     }
 }

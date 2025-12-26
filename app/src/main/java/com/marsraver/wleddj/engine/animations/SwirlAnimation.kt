@@ -1,127 +1,128 @@
 package com.marsraver.wleddj.engine.animations
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
-import com.marsraver.wleddj.engine.math.MathUtils
+import android.graphics.Paint
+import android.graphics.Rect
+import com.marsraver.wleddj.engine.Animation
 import com.marsraver.wleddj.engine.audio.LoudnessMeter
+import com.marsraver.wleddj.engine.color.Palette
+import com.marsraver.wleddj.engine.color.Palettes
+import kotlin.math.sin
 
 /**
- * Swirl animation - Audio-reactive swirling pixels with mirrored patterns.
- * Migrated to WledDj.
+ * Swirl Animation - Vector Symmetrical Orbs.
  */
-class SwirlAnimation : BasePixelAnimation() {
+class SwirlAnimation : Animation {
+
+    private var _palette: Palette = Palettes.get("Rainbow") ?: Palettes.getDefault()
+    override var currentPalette: Palette?
+        get() = _palette
+        set(value) { if (value != null) _palette = value }
 
     override fun supportsPalette(): Boolean = true
 
-    private var custom1: Int = 16
-    private var fadeAmount: Int = 4
-    private var loudnessMeter: LoudnessMeter? = null
+    // State
+    private var buffer: Bitmap? = null
+    private var bufferCanvas: Canvas? = null
+    private val paint = Paint().apply { isAntiAlias = true }
+    private val fadePaint = Paint().apply { 
+        color = Color.BLACK 
+        alpha = 20 // Long trails
+    }
+    private val clearRect = Rect()
     
-    private var startTimeNs: Long = 0L
+    // Audio
+    private var loudnessMeter: LoudnessMeter? = null
+    private var isInit = false
 
-    override fun onInit() {
-        loudnessMeter = LoudnessMeter()
-        paramIntensity = 64
-        startTimeNs = System.nanoTime()
+    // Params
+    private var paramSpeed: Int = 128
+    private var timeSeconds: Double = 0.0
+
+    private fun init() {
+        if (!isInit) {
+            loudnessMeter = LoudnessMeter()
+            isInit = true
+        }
     }
 
-    override fun update(now: Long): Boolean {
-        // Get loudness
-        val loudness = loudnessMeter?.getNormalizedLoudness() ?: 0
-        val rawVolume = (loudness / 1024.0f * 255.0f).toInt().coerceIn(0, 255)
-        val smoothVolume = loudness / 1024.0f * 255.0f
-
-        val NOISE_FLOOR = 5
-        if (rawVolume < NOISE_FLOOR) {
-            fadeToBlackBy(15) // WledFx: fadeToBlack(15)
-            // blur skipped to save perf or if needed implement
-            return true
+    override fun draw(canvas: Canvas, width: Float, height: Float) {
+        init()
+        val w = width.toInt().coerceAtLeast(1)
+        val h = height.toInt().coerceAtLeast(1)
+        
+        // 1. Buffer
+        if (buffer == null || buffer?.width != w || buffer?.height != h) {
+            buffer?.recycle()
+            buffer = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            bufferCanvas = Canvas(buffer!!)
+            bufferCanvas?.drawColor(Color.BLACK)
         }
-
-        fadeToBlackBy(fadeAmount)
-        if (custom1 > 0) blur2d(custom1)
-
-        val timeMs = (now - startTimeNs) / 1_000_000 // Ensure 0-based time
-        if (startTimeNs == 0L) { startTimeNs = now; }
-
-        var freq1 = (27 * paramSpeed) / 255
-        var freq2 = (41 * paramSpeed) / 255
-        if (freq1 < 1) freq1 = 1
-        if (freq2 < 1) freq2 = 1
-
-        val BORDER_WIDTH = 2
-        val i = MathUtils.beatsin8(freq1, BORDER_WIDTH, width - BORDER_WIDTH, timeMs)
-        val j = MathUtils.beatsin8(freq2, BORDER_WIDTH, height - BORDER_WIDTH, timeMs)
-        val ni = width - 1 - i
-        val nj = height - 1 - j
-
-        val baseBrightness = 200
-        val audioBoost = rawVolume / 2
-        var brightness = (baseBrightness + audioBoost).coerceAtMost(255)
-        brightness = brightness.coerceAtLeast(150)
-
-        val paletteOffset = smoothVolume * 4.0f
-
-        val color1 = colorFromPalette((timeMs / 11 + paletteOffset).toInt(), brightness)
-        addPixelColor(i, j, color1)
-
-        val color2 = colorFromPalette((timeMs / 13 + paletteOffset).toInt(), brightness)
-        addPixelColor(j, i, color2)
-
-        val color3 = colorFromPalette((timeMs / 17 + paletteOffset).toInt(), brightness)
-        addPixelColor(ni, nj, color3)
-
-        val color4 = colorFromPalette((timeMs / 29 + paletteOffset).toInt(), brightness)
-        addPixelColor(nj, ni, color4)
-
-        val color5 = colorFromPalette((timeMs / 37 + paletteOffset).toInt(), brightness)
-        addPixelColor(i, nj, color5)
-
-        val color6 = colorFromPalette((timeMs / 41 + paletteOffset).toInt(), brightness)
-        addPixelColor(ni, j, color6)
-
-        return true
+        val bufCanvas = bufferCanvas ?: return
+        
+        // 2. Fade
+        clearRect.set(0, 0, w, h)
+        bufCanvas.drawRect(clearRect, fadePaint)
+        
+        // 3. Update
+        val speed = 0.01 + (paramSpeed / 255.0) * 0.04
+        timeSeconds += speed
+        
+        val loudness = loudnessMeter?.getNormalizedLoudness() ?: 0
+        val lFloat = loudness.toFloat()
+        // Reduced size by half (was / 20f, now / 40f)
+        val radiusBoost = (lFloat / 30f).coerceIn(0f, 10f) 
+        val baseRadius = minOf(width, height) / 40f
+        
+        // Lissajous Coordinates
+        // Frequency logic from original: freq1 = 27*speed, freq2=41*speed
+        // approximating that ratio for chaos:
+        val t = timeSeconds * 2.0
+        val xVal = (sin(t * 1.0) + 1) / 2.0 // 0..1
+        val yVal = (sin(t * 1.51) + 1) / 2.0 // 0..1 (ratio 1.5ish)
+        
+        val padding = baseRadius * 2
+        val uw = width - padding*2
+        val uh = height - padding*2
+        
+        val i = padding + xVal * uw // X coord (0..width)
+        val j = padding + yVal * uh // Y coord (0..height)
+        
+        val ni = width - i
+        val nj = height - j
+        
+        // Draw 6 Orbs (Symmetry)
+        // 1. i, j
+        drawOrb(bufCanvas, i.toFloat(), j.toFloat(), baseRadius + radiusBoost, 0)
+        // 2. j, i (Swap X/Y - might clip if non-square, but let's allow it for "swirl" effect)
+        drawOrb(bufCanvas, j.toFloat(), i.toFloat(), baseRadius + radiusBoost, 1)
+        // 3. ni, nj
+        drawOrb(bufCanvas, ni.toFloat(), nj.toFloat(), baseRadius + radiusBoost, 2)
+        // 4. nj, ni
+        drawOrb(bufCanvas, nj.toFloat(), ni.toFloat(), baseRadius + radiusBoost, 3)
+        // 5. i, nj
+        drawOrb(bufCanvas, i.toFloat(), nj.toFloat(), baseRadius + radiusBoost, 4)
+        // 6. ni, j
+        drawOrb(bufCanvas, ni.toFloat(), j.toFloat(), baseRadius + radiusBoost, 5)
+        
+        // 4. Blit
+        canvas.drawBitmap(buffer!!, 0f, 0f, null)
+    }
+    
+    private fun drawOrb(c: Canvas, x: Float, y: Float, r: Float, index: Int) {
+        val colorIndex = ((timeSeconds * 50) + index * 40).toInt() % 256
+        paint.color = _palette.getInterpolatedInt(colorIndex)
+        paint.style = Paint.Style.FILL
+        c.drawCircle(x, y, r, paint)
     }
 
     override fun destroy() {
+        buffer?.recycle()
+        buffer = null
+        bufferCanvas = null
         loudnessMeter?.stop()
         loudnessMeter = null
-    }
-
-    // Additive color helper with 3x3 blob
-    private fun addPixelColor(cx: Int, cy: Int, color: Int) {
-        val rAdd = Color.red(color)
-        val gAdd = Color.green(color)
-        val bAdd = Color.blue(color)
-
-        // Draw 3x3 blob centered at cx, cy
-        for (dy in -1..1) {
-            for (dx in -1..1) {
-                val x = cx + dx
-                val y = cy + dy
-                
-                if (x in 0 until width && y in 0 until height) {
-                    val current = getPixelColor(x, y)
-                    val r = (Color.red(current) + rAdd).coerceAtMost(255)
-                    val g = (Color.green(current) + gAdd).coerceAtMost(255)
-                    val b = (Color.blue(current) + bAdd).coerceAtMost(255)
-                    setPixelColor(x, y, Color.rgb(r, g, b))
-                }
-            }
-        }
-    }
-    
-    private fun colorFromPalette(index: Int, brightness: Int): Int {
-         val base = getColorFromPalette(index)
-         return fadeColor2(base, 255 - brightness)
-    }
-    
-    private fun fadeColor2(color: Int, amount: Int): Int { 
-        // Helper to scale brightness by inverse amount (0=full, 255=black)
-        val scale = (255 - amount).coerceAtLeast(0) / 255.0
-        return Color.rgb(
-           (Color.red(color) * scale).toInt(),
-           (Color.green(color) * scale).toInt(),
-           (Color.blue(color) * scale).toInt()
-        )
     }
 }

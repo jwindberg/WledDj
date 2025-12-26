@@ -1,119 +1,155 @@
 package com.marsraver.wleddj.engine.animations
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
-import com.marsraver.wleddj.engine.math.MathUtils
-import kotlin.math.sin
+import android.graphics.Paint
+import android.graphics.Rect
+import com.marsraver.wleddj.engine.Animation
+import com.marsraver.wleddj.engine.color.Palette
+import com.marsraver.wleddj.engine.color.Palettes
 import kotlin.math.cos
-import kotlin.math.PI
+import kotlin.math.sin
 import kotlin.random.Random
 
 /**
- * GhostRider - Ghost rider trail effect
- * Migrated to WledDj.
+ * Ghost Rider Animation - Vector Sparkler.
  */
-class GhostRiderAnimation : BasePixelAnimation() {
+class GhostRiderAnimation : Animation {
 
-    private data class Lighter(
-        var gPosX: Float = 0f,
-        var gPosY: Float = 0f,
-        var gAngle: Float = 0f,
-        var angleSpeed: Float = 0f,
-        val lightersPosX: FloatArray = FloatArray(20),
-        val lightersPosY: FloatArray = FloatArray(20),
-        val angles: FloatArray = FloatArray(20),
-        val time: IntArray = IntArray(20),
-        val reg: BooleanArray = BooleanArray(20)
-    )
+    private var _palette: Palette = Palettes.get("Rainbow") ?: Palettes.getDefault()
+    override var currentPalette: Palette?
+        get() = _palette
+        set(value) { if (value != null) _palette = value }
 
-    private var lastUpdateNs: Long = 0L
-    private lateinit var lighter: Lighter
-    private val vSpeed = 5f
-    private val maxLighters = 20
-    
     override fun supportsPalette(): Boolean = true
 
-    override fun onInit() {
-        lastUpdateNs = System.nanoTime()
-
-        lighter = Lighter()
-        lighter.angleSpeed = (Random.nextInt(20) - 10).toFloat()
-        lighter.gAngle = Random.nextFloat() * 360f
-        lighter.gPosX = (width / 2f) * 10f
-        lighter.gPosY = (height / 2f) * 10f
-
-        for (i in 0 until maxLighters) {
-            lighter.lightersPosX[i] = lighter.gPosX
-            lighter.lightersPosY[i] = lighter.gPosY + i
-            lighter.time[i] = i * 2
-            lighter.reg[i] = false
-        }
+    // State
+    private var buffer: Bitmap? = null
+    private var bufferCanvas: Canvas? = null
+    private val paint = Paint().apply { isAntiAlias = true }
+    private val fadePaint = Paint().apply { 
+        color = Color.BLACK 
+        alpha = 30
     }
+    private val clearRect = Rect()
+    
+    // Head logic
+    private var headX: Float = 0f
+    private var headY: Float = 0f
+    private var angle: Float = 0f
+    private var angleSpeed: Float = 2.0f
+    
+    // Particles
+    private data class Particle(
+        var x: Float, var y: Float,
+        var vx: Float, var vy: Float,
+        var life: Float = 1.0f,
+        var color: Int
+    )
+    private val particles = mutableListOf<Particle>()
+    
+    // Params
+    private var paramSpeed: Int = 128
+    private var paramIntensity: Int = 128 // Used for blur/trail amount? or Particle count?
 
-    override fun update(now: Long): Boolean {
-         // 1024_000_000L / (width + height)
-        val updateInterval = 1024_000_000L / ((width + height).coerceAtLeast(1))
-        if (now - lastUpdateNs < updateInterval) return true
-        lastUpdateNs = now
-
-        fadeToBlackBy((paramSpeed shr 2) + 64)
-
-        setWuPixel(lighter.gPosX / 10f, lighter.gPosY / 10f, Color.WHITE)
-
-        val angleRad = lighter.gAngle * PI.toFloat() / 180f
-        lighter.gPosX += vSpeed * sin(angleRad)
-        lighter.gPosY += vSpeed * cos(angleRad)
-        lighter.gAngle += lighter.angleSpeed
-
-        if (lighter.gPosX < 0) lighter.gPosX = (width - 1) * 10f
-        if (lighter.gPosX > (width - 1) * 10f) lighter.gPosX = 0f
-        if (lighter.gPosY < 0) lighter.gPosY = (height - 1) * 10f
-        if (lighter.gPosY > (height - 1) * 10f) lighter.gPosY = 0f
-
-        for (i in 0 until maxLighters) {
-            lighter.time[i] += Random.nextInt(5, 20)
-
-            if (lighter.time[i] >= 255 ||
-                lighter.lightersPosX[i] <= 0 ||
-                lighter.lightersPosX[i] >= (width - 1) * 10f ||
-                lighter.lightersPosY[i] <= 0 ||
-                lighter.lightersPosY[i] >= (height - 1) * 10f) {
-                lighter.reg[i] = true
-            }
-
-            if (lighter.reg[i]) {
-                lighter.lightersPosY[i] = lighter.gPosY
-                lighter.lightersPosX[i] = lighter.gPosX
-                lighter.angles[i] = lighter.gAngle + (Random.nextInt(20) - 10)
-                lighter.time[i] = 0
-                lighter.reg[i] = false
+    override fun draw(canvas: Canvas, width: Float, height: Float) {
+        val w = width.toInt().coerceAtLeast(1)
+        val h = height.toInt().coerceAtLeast(1)
+        
+        // Init Head
+        if (headX == 0f) {
+            headX = width / 2f
+            headY = height / 2f
+            angle = Random.nextFloat() * 360f
+        }
+        
+        // 1. Buffer
+        if (buffer == null || buffer?.width != w || buffer?.height != h) {
+            buffer?.recycle()
+            buffer = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            bufferCanvas = Canvas(buffer!!)
+            bufferCanvas?.drawColor(Color.BLACK)
+        }
+        val bufCanvas = bufferCanvas ?: return
+        
+        // 2. Fade
+        // Map intensity to trail length?
+        // Higher intensity -> Less fade -> Longer trails
+        val fadeAlpha = 60 - (paramIntensity / 255f * 50).toInt()
+        fadePaint.alpha = fadeAlpha.coerceIn(5, 255)
+        clearRect.set(0, 0, w, h)
+        bufCanvas.drawRect(clearRect, fadePaint)
+        
+        // 3. Update Head
+        val speed = 2f + (paramSpeed / 255f) * 8f
+        
+        // Move in curvy path
+        val rad = Math.toRadians(angle.toDouble()).toFloat()
+        headX += cos(rad) * speed
+        headY += sin(rad) * speed
+        
+        angle += angleSpeed
+        if (Random.nextFloat() < 0.05f) {
+             angleSpeed = (Random.nextFloat() - 0.5f) * 10f
+        }
+        
+        // Wrap
+        if (headX < 0) headX = width
+        if (headX > width) headX = 0f
+        if (headY < 0) headY = height
+        if (headY > height) headY = 0f
+        
+        // Draw Head
+        paint.color = Color.WHITE
+        paint.style = Paint.Style.FILL
+        bufCanvas.drawCircle(headX, headY, 5f, paint)
+        
+        // 4. Emit Particles
+        val particleCount = 2 // emit per frame
+        for (i in 0 until particleCount) {
+             val pSpeed = Random.nextFloat() * 2f
+             val pAngle = Random.nextFloat() * 6.28f
+             val colorIndex = (System.currentTimeMillis() / 10).toInt() % 256
+             
+             particles.add(Particle(
+                 x = headX, y = headY,
+                 vx = cos(pAngle) * pSpeed,
+                 vy = sin(pAngle) * pSpeed,
+                 life = 1.0f,
+                 color = _palette.getInterpolatedInt(colorIndex)
+             ))
+        }
+        
+        // 5. Update Particles
+        val iter = particles.iterator()
+        while (iter.hasNext()) {
+            val p = iter.next()
+            p.x += p.vx
+            p.y += p.vy
+            
+            p.life -= 0.02f // Fade out rate
+            
+            p.vx *= 0.95f // Drag
+            p.vy *= 0.95f
+            
+            if (p.life <= 0f) {
+                iter.remove()
             } else {
-                val trailAngleRad = lighter.angles[i] * PI.toFloat() / 180f
-                lighter.lightersPosX[i] += -7 * sin(trailAngleRad)
-                lighter.lightersPosY[i] += -7 * cos(trailAngleRad)
+                paint.color = p.color
+                // Alpha based on life
+                paint.alpha = (p.life * 255).toInt()
+                bufCanvas.drawCircle(p.x, p.y, 3f * p.life, paint)
             }
-
-            val paletteIndex = 256 - lighter.time[i]
-            val color = getColorFromPalette(paletteIndex)
-
-            // Scale brightness if needed, but here just raw color
-            setWuPixel(lighter.lightersPosX[i] / 10f, lighter.lightersPosY[i] / 10f, color)
         }
         
-        // blur
-        val blurAmount = paramIntensity shr 3
-        if (blurAmount > 0) blur2d(blurAmount)
-        
-        return true
+        // 6. Blit
+        canvas.drawBitmap(buffer!!, 0f, 0f, null)
     }
 
-    private fun setWuPixel(x: Float, y: Float, color: Int) {
-        // Simple setPixel for now to avoid complexity of full AA implementation in this step
-        // Or simplified Wu:
-        val xi = x.toInt()
-        val yi = y.toInt()
-        if (xi in 0 until width && yi in 0 until height) {
-            setPixelColor(xi, yi, color)
-        }
-        // TODO: Full AA implementation?
+    override fun destroy() {
+        buffer?.recycle()
+        buffer = null
+        bufferCanvas = null
     }
 }
