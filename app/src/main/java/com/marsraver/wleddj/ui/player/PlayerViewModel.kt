@@ -73,6 +73,9 @@ class PlayerViewModel(
          // Restore Animations
          orig.animations.forEach { saved ->
              val anim = createAnimation(saved.type)
+             if (saved.text != null && anim.supportsText()) {
+                 anim.setText(saved.text)
+             }
              val region = com.marsraver.wleddj.data.model.AnimationRegion(
                  id = saved.id,
                  rect = android.graphics.RectF(saved.rectLeft, saved.rectTop, saved.rectRight, saved.rectBottom),
@@ -97,6 +100,9 @@ class PlayerViewModel(
          // Restore Animations
          orig.animations.forEach { saved ->
              val anim = createAnimation(saved.type)
+             if (saved.text != null && anim.supportsText()) {
+                 anim.setText(saved.text)
+             }
              val region = com.marsraver.wleddj.data.model.AnimationRegion(
                  id = saved.id,
                  rect = android.graphics.RectF(saved.rectLeft, saved.rectTop, saved.rectRight, saved.rectBottom),
@@ -164,6 +170,11 @@ class PlayerViewModel(
     val selectedRegionId: StateFlow<String?> = _selectedRegionId.asStateFlow()
 
     fun selectRegion(id: String?) {
+        if (id != null) {
+            _engine.value?.bringToFront(id)
+            refreshRegions() // Update list order in VM
+            saveAnimations() // Persist order
+        }
         _selectedRegionId.value = id
         refreshControlsState()
     }
@@ -174,9 +185,11 @@ class PlayerViewModel(
         val supportsPrimary: Boolean = false,
         val supportsSecondary: Boolean = false,
         val supportsPalette: Boolean = false,
+        val supportsText: Boolean = false,
         val primaryColor: Int = android.graphics.Color.WHITE,
         val secondaryColor: Int = android.graphics.Color.BLACK,
-        val currentPaletteName: String = "Default"
+        val currentPaletteName: String = "Default",
+        val currentText: String = ""
     )
     
     private val _animationControlsState = MutableStateFlow(AnimationControlsState())
@@ -193,9 +206,11 @@ class PlayerViewModel(
                 supportsPrimary = anim.supportsPrimaryColor(),
                 supportsSecondary = anim.supportsSecondaryColor(),
                 supportsPalette = anim.supportsPalette(),
+                supportsText = anim.supportsText(),
                 primaryColor = anim.primaryColor,
                 secondaryColor = anim.secondaryColor,
-                currentPaletteName = anim.currentPalette?.name ?: "Default"
+                currentPaletteName = anim.currentPalette?.name ?: "Default",
+                currentText = if (anim.supportsText()) anim.getText() else ""
             )
         } else {
             _animationControlsState.value = AnimationControlsState()
@@ -206,12 +221,14 @@ class PlayerViewModel(
         val anim = getSelectedAnimation() ?: return
         anim.primaryColor = color
         refreshControlsState()
+        saveAnimations()
     }
     
     fun setSecondaryColor(color: Int) {
         val anim = getSelectedAnimation() ?: return
         anim.secondaryColor = color
         refreshControlsState()
+        saveAnimations()
     }
     
     fun setPalette(paletteName: String) {
@@ -219,6 +236,16 @@ class PlayerViewModel(
         val pal = Palettes.get(paletteName) ?: return
         anim.currentPalette = pal
         refreshControlsState()
+        saveAnimations()
+    }
+    
+    fun updateText(text: String) {
+        val anim = getSelectedAnimation() ?: return
+        if (anim.supportsText()) {
+            anim.setText(text)
+            refreshControlsState()
+            saveAnimations()
+        }
     }
     
     private fun getSelectedAnimation(): com.marsraver.wleddj.engine.Animation? {
@@ -240,7 +267,7 @@ class PlayerViewModel(
          return when(type) {
             "Ball" -> com.marsraver.wleddj.engine.animations.BouncingBallAnimation(dropX, dropY, 30f)
 
-            "Fireworks" -> com.marsraver.wleddj.engine.animations.FireworksAnimation()
+
             "Aurora Borealis" -> com.marsraver.wleddj.engine.animations.AuroraBorealisAnimation()
             "Blurz" -> com.marsraver.wleddj.engine.animations.BlurzAnimation()
             "GEQ" -> com.marsraver.wleddj.engine.animations.GeqAnimation()
@@ -291,6 +318,12 @@ class PlayerViewModel(
             "Lake" -> com.marsraver.wleddj.engine.animations.LakeAnimation()
             "DnaSpiral" -> com.marsraver.wleddj.engine.animations.DnaSpiralAnimation()
             "Globe" -> com.marsraver.wleddj.engine.animations.GlobeAnimation()
+            "Fireworks" -> com.marsraver.wleddj.engine.animations.FireworksAnimation()
+            "InfiniteTunnel" -> com.marsraver.wleddj.engine.animations.InfiniteTunnelAnimation()
+            "Sonar" -> com.marsraver.wleddj.engine.animations.SonarAnimation()
+            "ScrollingText" -> com.marsraver.wleddj.engine.animations.ScrollingTextAnimation()
+            "Aquarium" -> com.marsraver.wleddj.engine.animations.AquariumAnimation()
+
             else -> com.marsraver.wleddj.engine.animations.BouncingBallAnimation(dropX, dropY, 30f)
         }
     }
@@ -307,6 +340,11 @@ class PlayerViewModel(
                 is com.marsraver.wleddj.engine.animations.BouncingBallAnimation -> "Ball"
 
                 is com.marsraver.wleddj.engine.animations.FireworksAnimation -> "Fireworks"
+                is com.marsraver.wleddj.engine.animations.InfiniteTunnelAnimation -> "InfiniteTunnel"
+                is com.marsraver.wleddj.engine.animations.SonarAnimation -> "Sonar"
+                is com.marsraver.wleddj.engine.animations.ScrollingTextAnimation -> "ScrollingText"
+                is com.marsraver.wleddj.engine.animations.AquariumAnimation -> "Aquarium"
+
                 is com.marsraver.wleddj.engine.animations.AuroraBorealisAnimation -> "Aurora Borealis"
                 is com.marsraver.wleddj.engine.animations.BlurzAnimation -> "Blurz"
                 is com.marsraver.wleddj.engine.animations.GeqAnimation -> "GEQ"
@@ -367,7 +405,8 @@ class PlayerViewModel(
                 rectTop = region.rect.top,
                 rectRight = region.rect.right,
                 rectBottom = region.rect.bottom,
-                rotation = region.rotation
+                rotation = region.rotation,
+                text = if (region.animation.supportsText()) region.animation.getText() else null
             )
         }
         
@@ -429,6 +468,8 @@ class PlayerViewModel(
             _engine.value?.handleTransform(targetX, targetY, panX, panY, zoom, rotation)
         }
     }
+
+
 
     private val _deviceStatuses = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     val deviceStatuses = _deviceStatuses.asStateFlow()

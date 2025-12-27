@@ -22,16 +22,18 @@ fun AnimationControlsBar(
     state: PlayerViewModel.AnimationControlsState,
     onPrimaryColorChange: (Int) -> Unit,
     onSecondaryColorChange: (Int) -> Unit,
-    onPaletteChange: (String) -> Unit
+    onPaletteChange: (String) -> Unit,
+    onTextChange: (String) -> Unit
 ) {
     if (!state.hasSelection) return
 
-    val hasControls = state.supportsPrimary || state.supportsSecondary || state.supportsPalette
+    val hasControls = state.supportsPrimary || state.supportsSecondary || state.supportsPalette || state.supportsText
     if (!hasControls) return
 
     var showPrimaryPicker by remember { mutableStateOf(false) }
     var showSecondaryPicker by remember { mutableStateOf(false) }
     var showPalettePicker by remember { mutableStateOf(false) }
+    var showTextPicker by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier
@@ -68,6 +70,17 @@ fun AnimationControlsBar(
                  Text(state.currentPaletteName)
              }
         }
+        
+        if (state.supportsText) {
+            Spacer(modifier = Modifier.width(16.dp))
+            Button(
+                onClick = { showTextPicker = true },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Text")
+            }
+        }
     }
 
     if (showPrimaryPicker) {
@@ -100,6 +113,17 @@ fun AnimationControlsBar(
                 showPalettePicker = false 
             },
             onDismiss = { showPalettePicker = false }
+        )
+    }
+
+    if (showTextPicker) {
+        com.marsraver.wleddj.ui.components.TextInputDialog(
+            initialText = state.currentText,
+            onTextEntered = {
+                onTextChange(it)
+                showTextPicker = false
+            },
+            onDismiss = { showTextPicker = false }
         )
     }
 }

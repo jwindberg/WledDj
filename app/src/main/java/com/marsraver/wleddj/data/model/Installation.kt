@@ -27,5 +27,6 @@ data class SavedAnimation(
     val rectTop: Float, 
     val rectRight: Float, 
     val rectBottom: Float,
-    val rotation: Float = 0f
+    val rotation: Float = 0f,
+    val text: String? = null
 )

@@ -29,7 +29,9 @@ class SwirlAnimation : Animation {
     private val paint = Paint().apply { isAntiAlias = true }
     private val fadePaint = Paint().apply { 
         color = Color.BLACK 
+        // DST_OUT fades Alpha: Result = Dest * (1 - SourceAlpha)
         alpha = 20 // Long trails
+        xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_OUT)
     }
     private val clearRect = Rect()
     
@@ -58,7 +60,7 @@ class SwirlAnimation : Animation {
             buffer?.recycle()
             buffer = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
             bufferCanvas = Canvas(buffer!!)
-            bufferCanvas?.drawColor(Color.BLACK)
+            bufferCanvas?.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
         }
         val bufCanvas = bufferCanvas ?: return
         

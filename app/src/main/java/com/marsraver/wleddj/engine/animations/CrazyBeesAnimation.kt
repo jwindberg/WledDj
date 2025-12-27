@@ -35,7 +35,10 @@ class CrazyBeesAnimation : Animation {
     private val paint = Paint().apply { isAntiAlias = true }
     private val fadePaint = Paint().apply { 
         color = Color.BLACK 
-        alpha = 40 // Trail persistence (0-255). Lower = longer trails.
+        // DST_OUT fades Alpha: Result = Dest * (1 - SourceAlpha)
+        // Alpha 40/255 ~= 15% fade per frame
+        alpha = 40 
+        xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_OUT)
     }
     private val clearRect = Rect()
 
@@ -86,7 +89,7 @@ class CrazyBeesAnimation : Animation {
             bufferCanvas = Canvas(buffer!!)
             
             // Clear new buffer
-            bufferCanvas?.drawColor(Color.BLACK)
+            bufferCanvas?.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
             
             // Bees need to adjust to new bounds if resize happened
             if (bees.isNotEmpty()) {

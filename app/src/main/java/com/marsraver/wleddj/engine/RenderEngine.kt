@@ -98,6 +98,18 @@ class RenderEngine(
                 }
             }
             recalculateBounds()
+            recalculateBounds()
+        }
+    }
+
+    fun bringToFront(id: String) {
+        synchronized(lock) {
+            val index = activeRegions.indexOfFirst { it.id == id }
+            if (index != -1 && index != activeRegions.lastIndex) {
+                val region = activeRegions.removeAt(index)
+                activeRegions.add(region)
+                // Bounds don't typically change on reorder, but safe to keep inconsistent state away
+            }
         }
     }
 

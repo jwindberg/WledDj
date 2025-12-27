@@ -84,7 +84,8 @@ class PuddlesAnimation : Animation {
         // Clear
         // Canvas is transparent? Or Black? 
         // Usually animations draw on black.
-        canvas.drawColor(Color.BLACK)
+        // Usually animations draw on black.
+        canvas.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
         
         // Update & Draw
         val iter = ripples.iterator()

@@ -31,6 +31,7 @@ class GhostRiderAnimation : Animation {
     private val fadePaint = Paint().apply { 
         color = Color.BLACK 
         alpha = 30
+        xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_OUT)
     }
     private val clearRect = Rect()
     
@@ -69,7 +70,7 @@ class GhostRiderAnimation : Animation {
             buffer?.recycle()
             buffer = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
             bufferCanvas = Canvas(buffer!!)
-            bufferCanvas?.drawColor(Color.BLACK)
+            bufferCanvas?.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
         }
         val bufCanvas = bufferCanvas ?: return
         

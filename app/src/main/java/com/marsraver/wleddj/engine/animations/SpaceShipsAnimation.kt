@@ -34,6 +34,7 @@ class SpaceShipsAnimation : Animation {
     private val fadePaint = Paint().apply { 
         color = Color.BLACK 
         alpha = 25 // Trails length
+        xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_OUT)
     }
     private val shipPath = Path()
     private val clearRect = Rect()
@@ -87,7 +88,7 @@ class SpaceShipsAnimation : Animation {
             bufferCanvas = Canvas(buffer!!)
             
             // Clear
-            bufferCanvas?.drawColor(Color.BLACK)
+            bufferCanvas?.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
             
             ships.clear()
         }

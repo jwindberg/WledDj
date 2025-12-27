@@ -14,6 +14,7 @@ interface Animation {
     fun supportsPrimaryColor(): Boolean = false
     fun supportsSecondaryColor(): Boolean = false
     fun supportsPalette(): Boolean = false
+    fun supportsText(): Boolean = false
 
     // State Accessors
     var primaryColor: Int
@@ -27,4 +28,7 @@ interface Animation {
     var currentPalette: Palette?
         get() = null
         set(value) {}
+
+    fun setText(text: String) {}
+    fun getText(): String = ""
 }
