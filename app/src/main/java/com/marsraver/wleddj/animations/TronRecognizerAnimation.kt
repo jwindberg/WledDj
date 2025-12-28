@@ -11,11 +11,18 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import kotlin.math.*
 
+import kotlinx.coroutines.*
+import kotlin.coroutines.CoroutineContext
+
 /**
  * Tron Recognizer animation - a 3D recognizer swooping in and out of frame.
  * Ported from LedFx (Java AWT) to Android Canvas.
  */
-class TronRecognizerAnimation(private val context: Context) : Animation {
+class TronRecognizerAnimation(private val context: Context) : Animation, CoroutineScope {
+
+    private val job = Job()
+    override val coroutineContext: CoroutineContext
+        get() = Dispatchers.Default + job
 
     // Recognizer 3D model data
     private data class Vertex3D(val x: Float, val y: Float, val z: Float)
@@ -92,9 +99,9 @@ class TronRecognizerAnimation(private val context: Context) : Animation {
         // Trigger Async Load once
         if (loadedVertices.isEmpty() && !isLoading) {
             isLoading = true
-            Thread {
+            launch(Dispatchers.IO) {
                 loadModelAsync()
-            }.start()
+            }
         }
 
         // Initialize Position logic once we know width/height
@@ -260,6 +267,7 @@ class TronRecognizerAnimation(private val context: Context) : Animation {
         return true
     }
 
+    // Load Model (Already background safe usage, but called via launch now)
     private fun loadModelAsync() {
         try {
             val inputStream = context.resources.openRawResource(R.raw.tron_recognizer)
@@ -353,8 +361,6 @@ class TronRecognizerAnimation(private val context: Context) : Animation {
             isLoading = false
         }
     }
-
-    // Removed old init/load methods
 
     private fun drawRecognizer(
         canvas: Canvas,
@@ -476,6 +482,6 @@ class TronRecognizerAnimation(private val context: Context) : Animation {
     }
 
     override fun destroy() {
-       // Cleanup threads if complex. Here simplest is fine.
+       job.cancel()
     }
 }

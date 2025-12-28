@@ -79,6 +79,16 @@ class PlayerViewModel(
              if (saved.text != null && anim.supportsText()) {
                  anim.setText(saved.text)
              }
+             if (saved.primaryColor != null && anim.supportsPrimaryColor()) {
+                 anim.primaryColor = saved.primaryColor
+             }
+             if (saved.secondaryColor != null && anim.supportsSecondaryColor()) {
+                 anim.secondaryColor = saved.secondaryColor
+             }
+             if (saved.paletteName != null && anim.supportsPalette()) {
+                 val pal = Palettes.get(saved.paletteName)
+                 if (pal != null) anim.currentPalette = pal
+             }
              val region = com.marsraver.wleddj.data.model.AnimationRegion(
                  id = saved.id,
                  rect = android.graphics.RectF(saved.rectLeft, saved.rectTop, saved.rectRight, saved.rectBottom),
@@ -145,6 +155,7 @@ class PlayerViewModel(
         _engine.value?.addRegion(region)
         refreshRegions()
     }
+    
     
 
     
@@ -409,7 +420,10 @@ class PlayerViewModel(
                 rectRight = region.rect.right,
                 rectBottom = region.rect.bottom,
                 rotation = region.rotation,
-                text = if (region.animation.supportsText()) region.animation.getText() else null
+                text = if (region.animation.supportsText()) region.animation.getText() else null,
+                primaryColor = if (region.animation.supportsPrimaryColor()) region.animation.primaryColor else null,
+                secondaryColor = if (region.animation.supportsSecondaryColor()) region.animation.secondaryColor else null,
+                paletteName = if (region.animation.supportsPalette()) region.animation.currentPalette?.name else null
             )
         }
         

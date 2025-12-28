@@ -28,5 +28,8 @@ data class SavedAnimation(
     val rectRight: Float, 
     val rectBottom: Float,
     val rotation: Float = 0f,
-    val text: String? = null
+    val text: String? = null,
+    val primaryColor: Int? = null,
+    val secondaryColor: Int? = null,
+    val paletteName: String? = null
 )
