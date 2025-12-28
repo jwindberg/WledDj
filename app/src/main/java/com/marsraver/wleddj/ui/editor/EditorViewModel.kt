@@ -7,9 +7,9 @@ import androidx.lifecycle.viewModelScope
 import com.marsraver.wleddj.data.model.Installation
 import com.marsraver.wleddj.data.model.WledDevice
 import com.marsraver.wleddj.data.repository.InstallationRepository
-import com.marsraver.wleddj.data.repository.WledApiHelper
-import com.marsraver.wleddj.engine.network.DiscoveredDevice
-import com.marsraver.wleddj.engine.network.DiscoveryManager
+import com.marsraver.wleddj.wled.WledDiscoveryClient
+import com.marsraver.wleddj.wled.WledHttpClient
+import com.marsraver.wleddj.wled.model.DiscoveredDevice
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -27,7 +27,8 @@ class EditorViewModel(
     private val _discoveredDevices = MutableStateFlow<List<DiscoveredDevice>>(emptyList())
     val discoveredDevices = _discoveredDevices.asStateFlow()
 
-    private val discoveryManager = DiscoveryManager(context)
+    private val discoveryClient = WledDiscoveryClient(context)
+    private val httpClient = WledHttpClient()
 
     init {
         loadInstallation()
@@ -40,12 +41,6 @@ class EditorViewModel(
             repository.installations.collect { list ->
                 val updated = list.find { it.id == installationId }
                 if (updated != null) {
-                    // Only update if fundamentally different to avoid loop?
-                    // But we rely on this to get new animations list.
-                    // We must be careful not to overwrite local ephemeral state (like dragging) if we had any.
-                    // Editor only drags devices which updates _installation locally immediately.
-                    // Merging logic might be needed if concurrent edits happen.
-                    // For now, simpler: Just take the latest from Repo.
                     _installation.value = updated
                 }
             }
@@ -56,7 +51,7 @@ class EditorViewModel(
 
     private fun startDiscovery() {
         viewModelScope.launch {
-            discoveryManager.discoverDevices().collect { devices ->
+            discoveryClient.discoverDevices().collect { devices ->
                 // Update basic list first, merging with known names
                 val mergedList = devices.map { device ->
                     device.copy(name = resolvedNames[device.ip] ?: device.name)
@@ -67,7 +62,7 @@ class EditorViewModel(
                 devices.forEach { device ->
                     if (!resolvedNames.containsKey(device.ip)) {
                         launch {
-                            val info = WledApiHelper.getDeviceInfo(device.ip)
+                            val info = httpClient.getDeviceInfo(device.ip)
                             if (info != null && info.name != device.name) {
                                 updateDiscoveredDeviceName(device.ip, info.name)
                             }
@@ -94,7 +89,7 @@ class EditorViewModel(
             if (current.devices.any { it.ip == discovered.ip }) return@launch
 
             // Fetch info
-            val info = WledApiHelper.getDeviceInfo(discovered.ip)
+            val info = httpClient.getDeviceInfo(discovered.ip)
             val name = info?.name ?: discovered.name
             val pixelCount = info?.leds?.count ?: 100 // Default
             
@@ -104,8 +99,6 @@ class EditorViewModel(
             
             val (width, height) = if (wledW > 0 && wledH > 0) {
                  // Use WLED provided dimensions (scaled to some reasonable virtual size)
-                 // Let's say 1 pixel = 10 units? or just use relative aspect ratio
-                 // Let's use a base size of 200f width and scale height accordingly
                  val ratio = wledH.toFloat() / wledW.toFloat()
                  200f to (200f * ratio)
             } else {
@@ -130,6 +123,9 @@ class EditorViewModel(
                 startX += 20f
                 startY += 20f
             }
+            
+            // Auto-detect matrix fields
+            val isMatrix = (wledW > 0) || (kotlin.math.sqrt(pixelCount.toFloat()) % 1.0 == 0.0)
 
             val newDevice = WledDevice(
                 ip = discovered.ip,
@@ -141,7 +137,7 @@ class EditorViewModel(
                 width = width,
                 height = height,
                 rotation = 0f,
-                segmentWidth = if (wledW > 0) wledW else if (kotlin.math.sqrt(pixelCount.toFloat()) % 1.0 == 0.0) kotlin.math.sqrt(pixelCount.toFloat()).toInt() else 0
+                segmentWidth = if (wledW > 0) wledW else if (isMatrix) kotlin.math.sqrt(pixelCount.toFloat()).toInt() else 0
             )
 
             val updated = current.copy(devices = current.devices + newDevice)
@@ -158,6 +154,41 @@ class EditorViewModel(
         val updated = current.copy(devices = updatedDevices)
         _installation.value = updated
         // Do NOT save to repository here. Use saveProject() explicitly on drag end.
+    }
+
+    fun updateDeviceMatrixConfig(ip: String, segmentWidth: Int) {
+        val current = _installation.value ?: return
+        val updatedDevices = current.devices.map {
+            if (it.ip == ip) {
+                it.copy(
+                    segmentWidth = segmentWidth
+                )
+            } else it
+        }
+        updateInstallation(current.copy(devices = updatedDevices))
+    }
+    
+    fun forceRefreshDeviceConfig(device: WledDevice) {
+        viewModelScope.launch {
+            val config = httpClient.getDeviceConfig(device.ip)
+            // Need to parse config similar to previous logic
+            // WledConfigResponse -> WledDevice
+            // BUT wait, WledHttpClient returns WledConfigResponse which has `hw.led.matrix`
+            
+            val matrix = config?.hw?.led?.matrix
+            val panel = matrix?.panels?.firstOrNull()
+            
+            if (panel != null) {
+                 val updated = device.copy(
+                     segmentWidth = panel.w
+                 )
+                 
+                 // Update device in installation
+                 val current = _installation.value ?: return@launch
+                 val newDevices = current.devices.map { if (it.ip == device.ip) updated else it }
+                 updateInstallation(current.copy(devices = newDevices))
+            }
+        }
     }
 
     fun updateViewport(zoom: Float, panX: Float, panY: Float) {
@@ -184,6 +215,11 @@ class EditorViewModel(
             repository.updateInstallation(installation)
         }
     }
+    
+    private fun updateInstallation(installation: Installation) {
+         _installation.value = installation
+         saveInstallation(installation)
+    }
 
     fun removeDevice(device: WledDevice) {
         val current = _installation.value ?: return
@@ -200,7 +236,7 @@ class EditorViewModel(
         viewModelScope.launch {
              current.devices.forEach { device ->
                  launch {
-                     WledApiHelper.rebootDevice(device.ip)
+                     httpClient.rebootDevice(device.ip)
                  }
              }
         }

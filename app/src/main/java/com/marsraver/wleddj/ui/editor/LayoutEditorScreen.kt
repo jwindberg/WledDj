@@ -9,6 +9,8 @@ import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -31,7 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.marsraver.wleddj.data.model.WledDevice
 import com.marsraver.wleddj.data.repository.FileInstallationRepository
-import com.marsraver.wleddj.engine.network.DiscoveredDevice
+import com.marsraver.wleddj.wled.model.DiscoveredDevice
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 

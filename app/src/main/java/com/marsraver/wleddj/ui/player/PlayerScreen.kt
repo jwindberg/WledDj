@@ -289,8 +289,9 @@ fun PlayerScreen(
                                 // Drop at Center of Viewport (Camera Position)
                                 val cx = installation!!.cameraX ?: (width / 2f)
                                 val cy = installation!!.cameraY ?: (height / 2f)
+                                val zoom = installation!!.cameraZoom
                                 
-                                viewModel.onToolDropped(type, cx, cy, width, height)
+                                viewModel.onToolDropped(type, cx, cy, width, height, zoom)
                                 showSheet = false
                          }
                      )
@@ -370,8 +371,7 @@ fun InteractivePlayerCanvas(
         modifier = Modifier
             .fillMaxSize()
             .pointerInput(isInteractive, canvasGeometry.viewWidth, canvasGeometry.viewHeight) {
-                if (!isInteractive) {
-                     awaitEachGesture {
+                 awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val localX = down.position.x
                         val localY = down.position.y
@@ -406,6 +406,18 @@ fun InteractivePlayerCanvas(
                                // In Interactive Mode (Performance), we trigger onInteract for "Touch" pos.
                                val rootOff = canvasGeometry.rootOffset
                                currentOnInteractState.value(localX + rootOff.x, localY + rootOff.y)
+                               
+                               // Loop to track dragging
+                               do {
+                                   val event = awaitPointerEvent()
+                                   val change = event.changes.firstOrNull()
+                                   if (change != null) {
+                                       val curX = change.position.x
+                                       val curY = change.position.y
+                                       currentOnInteractState.value(curX + rootOff.x, curY + rootOff.y)
+                                   }
+                               } while (event.changes.any { it.pressed })
+                               
                         } else {
                                // EDIT MODE LOGIC (Selection / Dragging Regions)
                                val virtualPoint = screenToVirtual(down.position.x, down.position.y)
@@ -494,7 +506,6 @@ fun InteractivePlayerCanvas(
                            }
                      }
                 }
-            }
             // Use a separate pointerInput for Transform (Rotation)
             .pointerInput(isInteractive) {
                  if (isInteractive) {
