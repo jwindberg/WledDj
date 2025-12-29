@@ -11,6 +11,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+
+import androidx.compose.ui.res.stringResource
+import com.marsraver.wleddj.R
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -45,7 +48,7 @@ fun AnimationControlsBar(
     ) {
         if (state.supportsPrimary) {
             ControlItem(
-                label = "Primary:", 
+                label = stringResource(R.string.label_primary), 
                 color = state.primaryColor, 
                 onClick = { showPrimaryPicker = true }
             )
@@ -54,7 +57,7 @@ fun AnimationControlsBar(
 
         if (state.supportsSecondary) {
             ControlItem(
-                label = "Secondary:", 
+                label = stringResource(R.string.label_secondary), 
                 color = state.secondaryColor, 
                 onClick = { showSecondaryPicker = true }
             )
@@ -78,10 +81,12 @@ fun AnimationControlsBar(
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Text")
+                Text(stringResource(R.string.action_text))
             }
         }
     }
+    
+    // ... (rest of file)
 
     if (showPrimaryPicker) {
         com.marsraver.wleddj.ui.components.ProColorPickerDialog(

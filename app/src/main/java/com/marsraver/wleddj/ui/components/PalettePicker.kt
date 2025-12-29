@@ -9,11 +9,14 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 
+import com.marsraver.wleddj.R
 import com.marsraver.wleddj.engine.color.Palette
 
 @Composable
@@ -58,7 +61,7 @@ fun PaletteTab(onColorPick: (Int) -> Unit) {
                 onClick = { expanded = true },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Source: ${selectedPalette.displayName}")
+                Text(stringResource(R.string.label_source, selectedPalette.displayName))
             }
             
             DropdownMenu(

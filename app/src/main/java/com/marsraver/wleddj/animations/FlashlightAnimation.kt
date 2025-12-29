@@ -29,8 +29,8 @@ class FlashlightAnimation : Animation {
             targetY = height / 2f
         }
         
-        // Fixed radius (Ball size approx = 30f)
-        val radius = 30f 
+        // Dynamic radius based on viewport size (approx 40% of min dimension)
+        val radius = kotlin.math.min(width, height) * 0.4f
         
         // Glowing Spot using Primary Color
         // RadialGradient: Center (Color), Edge (Transparent)

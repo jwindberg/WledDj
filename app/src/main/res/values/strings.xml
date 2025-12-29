@@ -41,4 +41,24 @@
     <string name="delete_selection">Delete Selection</string>
     <string name="add_animation">Add Animation</string>
     <string name="audio_reactive">Audio Reactive</string>
+
+    <!-- Animation Controls -->
+    <string name="label_primary">Primary:</string>
+    <string name="label_secondary">Secondary:</string>
+    <string name="label_source">Source: %1$s</string>
+    <string name="action_text">Text</string>
+    <string name="dialog_select_palette">Select Palette</string>
+    <string name="action_ok">OK</string>
+
+    <!-- Player Messages -->
+    <string name="msg_loading">Loading Installation...</string>
+    <string name="msg_tap_add">Tap + to add an effect</string>
+
+    <!-- Status -->
+    <string name="label_connection">Connection:</string>
+    <string name="label_brightness">Brightness:</string>
+    <string name="status_connected">Connected</string>
+    <string name="status_disconnected">Disconnected</string>
+    <string name="mac_address">MAC: %1$s</string>
+    <string name="version">Ver: %1$s</string>
 </resources>

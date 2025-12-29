@@ -23,7 +23,8 @@ import kotlinx.coroutines.delay
 class PlayerViewModel(
     application: Application,
     private val installationId: String,
-    private val repository: InstallationRepository
+    private val repository: InstallationRepository,
+    private val networkManager: com.marsraver.wleddj.wled.NetworkManager = com.marsraver.wleddj.wled.NetworkManager() // Default for now
 ) : AndroidViewModel(application) {
 
     private val _engine = MutableStateFlow<RenderEngine?>(null)
@@ -37,8 +38,7 @@ class PlayerViewModel(
     }
 
     private var _originalInstallation: com.marsraver.wleddj.model.Installation? = null
-    
-    private val httpClient = com.marsraver.wleddj.wled.WledHttpClient()
+    // HttpClient moved to NetworkManager
 
     private fun loadInstallation() {
         viewModelScope.launch {
@@ -369,39 +369,17 @@ class PlayerViewModel(
 
 
 
-    private val _deviceStatuses = MutableStateFlow<Map<String, Boolean>>(emptyMap())
-    val deviceStatuses = _deviceStatuses.asStateFlow()
+    val deviceStatuses = networkManager.deviceStatuses
     
-    private var monitorJob: kotlinx.coroutines.Job? = null
-
     private fun startMonitoring() {
-        if (monitorJob?.isActive == true) return
-        monitorJob = viewModelScope.launch {
-            while (isActive) {
-                val devices = _installation.value?.devices ?: emptyList()
-                if (devices.isNotEmpty()) {
-                    val scope = this
-                    val tasks = devices.map { device ->
-                         val task = scope.async { 
-                             httpClient.pingDevice(device.ip) 
-                         }
-                         device.ip to task
-                    }
-                    
-                    val map = mutableMapOf<String, Boolean>()
-                    for ((ip, task) in tasks) {
-                        map[ip] = task.await()
-                    }
-                    _deviceStatuses.value = map
-                }
-                delay(5000)
-            }
-        }
+        // Update targets whenever we start, just in case
+        val devices = _installation.value?.devices ?: emptyList()
+        networkManager.setTargets(devices)
+        networkManager.startMonitoring(viewModelScope)
     }
     
     private fun stopMonitoring() {
-        monitorJob?.cancel()
-        monitorJob = null
+        networkManager.stopMonitoring()
     }
 
     fun pauseEngine() {
