@@ -201,7 +201,7 @@ class PlayerViewModel(
         val supportsText: Boolean = false,
         val primaryColor: Int = android.graphics.Color.WHITE,
         val secondaryColor: Int = android.graphics.Color.BLACK,
-        val currentPaletteName: String = "Default",
+        val currentPaletteName: String = Palettes.DEFAULT_PALETTE_NAME,
         val currentText: String = ""
     )
     
@@ -222,7 +222,7 @@ class PlayerViewModel(
                 supportsText = anim.supportsText(),
                 primaryColor = anim.primaryColor,
                 secondaryColor = anim.secondaryColor,
-                currentPaletteName = anim.currentPalette?.name ?: "Default",
+                currentPaletteName = anim.currentPalette?.name ?: Palettes.DEFAULT_PALETTE_NAME,
                 currentText = if (anim.supportsText()) anim.getText() else ""
             )
         } else {

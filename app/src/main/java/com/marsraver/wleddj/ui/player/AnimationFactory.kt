@@ -67,6 +67,8 @@ object AnimationFactory {
             "ScrollingText" -> ScrollingTextAnimation()
             "Aquarium" -> AquariumAnimation()
             "FractalZoom" -> FractalZoomAnimation()
+            "Physarum" -> PhysarumAnimation()
+            "ReactionDiffusion" -> ReactionDiffusionAnimation()
             else -> BouncingBallAnimation(dropX, dropY, 30f)
         }
     }
@@ -78,6 +80,8 @@ object AnimationFactory {
             is FireworksAnimation -> "Fireworks"
             is InfiniteTunnelAnimation -> "InfiniteTunnel"
             is FractalZoomAnimation -> "FractalZoom"
+            is PhysarumAnimation -> "Physarum"
+            is ReactionDiffusionAnimation -> "ReactionDiffusion"
             is SonarAnimation -> "Sonar"
             is ScrollingTextAnimation -> "ScrollingText"
             is AquariumAnimation -> "Aquarium"
@@ -163,7 +167,8 @@ object AnimationFactory {
             "PixelWave", "FreqMatrix", "Lake", "DnaSpiral", "Globe", "Ball", 
             "Spectrogram", "InfiniteTunnel", "FractalZoom", "Sonar", "ScrollingText", "Fireworks",
             "Aurora Borealis", "Blurz", "GEQ", "MusicBall", "DeathStarRun",
-            "Flashlight", "Fireflies", "TronRecognizer", "SpectrumTree", "Soap"
+            "Flashlight", "Fireflies", "TronRecognizer", "SpectrumTree", "Soap", "Physarum",
+            "ReactionDiffusion"
         ).sorted().map { name ->
             AnimationMetadata(name, audioReactive.contains(name))
         }

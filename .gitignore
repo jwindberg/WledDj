@@ -39,3 +39,4 @@ google-services.json
 # Android Profiling
 *.hprof
 app/src/main/res/raw/death_star_run.gif
+ai_rules.md
