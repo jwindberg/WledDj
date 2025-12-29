@@ -16,5 +16,14 @@ data class WledDevice(
     // Rotation in degrees
     val rotation: Float = 0f,
     // For Matrices: number of LEDs in a row. 0 or 1 implies linear strip.
-    val segmentWidth: Int = 0
+    val segmentWidth: Int = 0,
+    // Matrix Metadata
+    val is2D: Boolean = false,
+    val matrixWidth: Int = 0,
+    val matrixHeight: Int = 0,
+    val serpentine: Boolean = false,
+    // Human readable descriptions
+    val firstLed: String = "",
+    val orientation: String = "",
+    val panelDescription: String = ""
 )

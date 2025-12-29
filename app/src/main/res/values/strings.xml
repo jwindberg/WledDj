@@ -1,3 +1,44 @@
 <resources>
     <string name="app_name">WledDj</string>
+    
+    <!-- Generic -->
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="cancel">Cancel</string>
+    <string name="back">Back</string>
+    <string name="close">Close</string>
+    <string name="delete">Delete</string>
+    <string name="unknown">Unknown</string>
+    
+    <!-- Editor -->
+    <string name="device_layout_title">Device Layout</string>
+    <string name="animation_layout_title">Animation Layout</string>
+    <string name="add_device">Add Device</string>
+    <string name="delete_device">Delete Device</string>
+    <string name="reboot_all">Reboot All</string>
+    <string name="scanning_devices">Scanning for WLED devices...</string>
+    <string name="reboot_dialog_title">Reboot Devices</string>
+    <string name="reboot_dialog_text">Reboot all WLED devices?</string>
+    <string name="device_details_title">Device Details</string>
+    <string name="device_settings">Device Settings</string>
+    <string name="ip_address">IP Address</string>
+    <string name="pixel_count">Pixel Count</string>
+    <string name="segment_width">Segment Width</string>
+    <string name="is_2d">2D Matrix</string>
+    <string name="matrix_dimensions">Dimensions</string>
+    <string name="serpentine">Serpentine</string>
+    <string name="vertical">Vertical</string>
+    <string name="first_led">First LED</string>
+    <string name="orientation">Orientation</string>
+    <string name="panel_info">Panel Info</string>
+    <string name="refresh">Refresh</string>
+    
+    <!-- Player -->
+    <string name="performance_mode">Performance Mode</string>
+    <string name="enter_performance_mode">Enter Performance Mode</string>
+    <string name="lock_screen">Lock Screen</string>
+    <string name="unlock_screen">Unlock Screen</string>
+    <string name="delete_selection">Delete Selection</string>
+    <string name="add_animation">Add Animation</string>
+    <string name="audio_reactive">Audio Reactive</string>
 </resources>

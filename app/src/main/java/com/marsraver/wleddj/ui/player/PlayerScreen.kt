@@ -45,6 +45,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.marsraver.wleddj.repository.FileInstallationRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.res.stringResource
+import com.marsraver.wleddj.R
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -131,9 +133,9 @@ fun PlayerScreen(
             CenterAlignedTopAppBar(
                 title = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(if (isInteractive) "Performance Mode" else "Animation Layout")
+                        Text(if (isInteractive) stringResource(R.string.performance_mode) else stringResource(R.string.animation_layout_title))
                         if (!isInteractive && selectedRegionId != null) {
-                             val animType = installation?.animations?.find { it.id == selectedRegionId }?.type ?: "Unknown"
+                             val animType = installation?.animations?.find { it.id == selectedRegionId }?.type ?: stringResource(R.string.unknown)
                              Text(
                                  text = animType,
                                  style = MaterialTheme.typography.bodySmall,
@@ -148,7 +150,7 @@ fun PlayerScreen(
                     }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack, 
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.back),
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -156,7 +158,7 @@ fun PlayerScreen(
                 actions = {
                     // Always allow toggling Wake Lock
                     val icon = if (isScreenLocked) Icons.Default.Lock else Icons.Default.LockOpen
-                    val desc = if (isScreenLocked) "Unlock Screen" else "Lock Screen"
+                    val desc = if (isScreenLocked) stringResource(R.string.unlock_screen) else stringResource(R.string.lock_screen)
                     
                     IconButton(onClick = { isScreenLocked = !isScreenLocked }) {
                        Icon(icon, desc, tint = MaterialTheme.colorScheme.onSurface)
@@ -165,14 +167,14 @@ fun PlayerScreen(
                     if (!isInteractive) {
                         if (selectedRegionId != null) {
                              IconButton(onClick = { viewModel.deleteSelection() }) {
-                                Icon(Icons.Default.Delete, "Delete Selection", tint = MaterialTheme.colorScheme.onSurface)
+                                Icon(Icons.Default.Delete, stringResource(R.string.delete_selection), tint = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                          // Arrow to Performance Mode
                          IconButton(onClick = { viewModel.toggleInteractiveMode() }) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowForward, 
-                                contentDescription = "Enter Performance Mode",
+                                contentDescription = stringResource(R.string.enter_performance_mode),
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
@@ -183,7 +185,7 @@ fun PlayerScreen(
         floatingActionButton = {
             if (!isInteractive && !showSheet) {
                 FloatingActionButton(onClick = { showSheet = true }) {
-                     Icon(Icons.Default.Add, "Add Animation")
+                     Icon(Icons.Default.Add, stringResource(R.string.add_animation))
                 }
             }
         }
@@ -304,147 +306,4 @@ fun PlayerScreen(
 // Canvas and Geometry moved to PlayerCanvas.kt
 
 
-@Composable
-fun AnimationSelectionSheet(
-    modifier: Modifier = Modifier,
-    onSelect: (String) -> Unit
-) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .fillMaxHeight(0.4f), 
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 8.dp,
-        shape = MaterialTheme.shapes.large.copy(bottomStart = androidx.compose.foundation.shape.CornerSize(0.dp), bottomEnd = androidx.compose.foundation.shape.CornerSize(0.dp))
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Add Animation",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-            
-            androidx.compose.foundation.lazy.LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(bottom = 16.dp)
-            ) {
-                val animations = listOf(
-                    "Akemi",
-                    "Aquarium",
-                    "Fire 2012 2D",
-                    "FireNoise2D",
-                    "Noise2D",
-                    "PlasmaBall2D",
-                    "Matrix",
-                    "MetaBalls",
-                    "Game Of Life",
-                    "Julia",
-                    "Swirl",
-                    "Pacifica",
-                    "Blobs",
-                    "DistortionWaves",
-                    "Plasmoid",
-                    "PolarLights",
-                    "Space Ships",
-                    "SquareSwirl",
-                    "Puddles",
-                    "Lissajous",
-                    "Tartan",
-                    "Waverly",
-                    "CrazyBees",
-                    "GhostRider",
-                    "SunRadiation",
-                    "WashingMachine",
-                    "RotoZoomer",
-                    "Tetrix",
-                    "Hiphotic",
-                    "BlackHole",
-                    "FunkyPlank",
-                    "DriftRose",
-                    "Matripix",
-                    "WavingCell",
-                    "Frizzles",
-                    "PixelWave",
-                    "FreqMatrix",
-                    "Lake",
-                    "DnaSpiral",
-                    "Globe",
-                    "Ball", 
-                    "Spectrogram",
-                    "InfiniteTunnel",
-                    "Sonar",
-                    "ScrollingText",
-                    "Fireworks",
 
-                    "Aurora Borealis",
-                    "Blurz",
-                    "GEQ",
-                    "MusicBall",
-                    "DeathStarRun",
-                    "Flashlight",
-                    "Fireflies",
-                    "TronRecognizer",
-                    "SpectrumTree",
-                    "Soap",
-
-                ).sorted()
-                
-                val audioReactiveConfigs = setOf(
-                    "GEQ",
-                    "MusicBall",
-                    "SpectrumTree",
-                    "Fireworks",
-                    "InfiniteTunnel",
-                    "Sonar"
-                )
-                
-                items(animations.size) { index ->
-                    val name = animations[index]
-                    AnimationListItem(
-                        type = name,
-                        isAudioReactive = audioReactiveConfigs.contains(name),
-                        onClick = { onSelect(name) }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun AnimationListItem(
-    type: String,
-    isAudioReactive: Boolean,
-    onClick: () -> Unit
-) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = MaterialTheme.shapes.small,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .clickable(onClick = onClick) 
-    ) {
-        Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = type, 
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-            
-            if (isAudioReactive) {
-                androidx.compose.material3.Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Filled.MusicNote,
-                    contentDescription = "Audio Reactive",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-            }
-        }
-    }
-}

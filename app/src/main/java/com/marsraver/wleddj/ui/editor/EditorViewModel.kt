@@ -137,10 +137,40 @@ class EditorViewModel(
                 width = width,
                 height = height,
                 rotation = 0f,
-                segmentWidth = if (wledW > 0) wledW else if (isMatrix) kotlin.math.sqrt(pixelCount.toFloat()).toInt() else 0
+                segmentWidth = if (wledW > 0) wledW else if (isMatrix) kotlin.math.sqrt(pixelCount.toFloat()).toInt() else 0,
+                is2D = false,
+                matrixWidth = wledW,
+                matrixHeight = wledH,
+                serpentine = false,
+                firstLed = "",
+                orientation = "",
+                panelDescription = ""
             )
+            
+            // Immediate config fetch to populate details
+            val config = httpClient.getDeviceConfig(discovered.ip)
+            val matrix = config?.hw?.led?.matrix
+            val panel = matrix?.panels?.firstOrNull()
+            
+            val finalizedDevice = if (panel != null) {
+                val vertText = if (panel.v) "Vertical" else "Horizontal"
+                val startV = if (panel.b) "Bottom" else "Top"
+                val startH = if (panel.r) "Right" else "Left"
+                
+                newDevice.copy(
+                    is2D = true,
+                    matrixWidth = panel.w,
+                    matrixHeight = panel.h,
+                    serpentine = panel.s,
+                    // vertical = panel.v, (Removed from model)
+                    segmentWidth = panel.w, // Authority
+                    firstLed = "$startV-$startH",
+                    orientation = vertText,
+                    panelDescription = "Panel 0 (of ${matrix.panels?.size ?: 1})"
+                )
+            } else newDevice
 
-            val updated = current.copy(devices = current.devices + newDevice)
+            val updated = current.copy(devices = current.devices + finalizedDevice)
             repository.updateInstallation(updated)
             _installation.value = updated
         }
@@ -179,8 +209,20 @@ class EditorViewModel(
             val panel = matrix?.panels?.firstOrNull()
             
             if (panel != null) {
+                 val vertText = if (panel.v) "Vertical" else "Horizontal"
+                 val startV = if (panel.b) "Bottom" else "Top"
+                 val startH = if (panel.r) "Right" else "Left"
+
                  val updated = device.copy(
-                     segmentWidth = panel.w
+                     segmentWidth = panel.w,
+                     is2D = true,
+                     matrixWidth = panel.w,
+                     matrixHeight = panel.h,
+                     serpentine = panel.s, // s = serpentine
+                     // vertical = panel.v,    (Removed from model)
+                     firstLed = "$startV-$startH",
+                     orientation = vertText,
+                     panelDescription = "Panel 0 (of ${matrix.panels?.size ?: 1})"
                  )
                  
                  // Update device in installation

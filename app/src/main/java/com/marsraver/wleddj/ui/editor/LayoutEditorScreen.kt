@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,6 +31,8 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.marsraver.wleddj.R
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.marsraver.wleddj.model.Installation
 import com.marsraver.wleddj.model.WledDevice
@@ -63,6 +66,7 @@ fun LayoutEditorScreen(
 
     var showAddSheet by remember { mutableStateOf(false) }
     var showRebootDialog by remember { mutableStateOf(false) }
+    var showDetailsDialog by remember { mutableStateOf(false) }
     var selectedDeviceIp: String? by remember { mutableStateOf(null) }
 
     // Derive the selected device object from the current installation
@@ -81,7 +85,7 @@ fun LayoutEditorScreen(
             CenterAlignedTopAppBar(
                 title = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Device Layout")
+                        Text(stringResource(R.string.device_layout_title))
                         if (selectedDevice != null) {
                             Text(
                                 text = selectedDevice.name,
@@ -98,20 +102,27 @@ fun LayoutEditorScreen(
                     }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack, 
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.back),
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
                 actions = {
                     if (selectedDevice != null) {
+                        IconButton(onClick = { showDetailsDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = stringResource(R.string.device_settings),
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                         IconButton(onClick = {
                             selectedDevice?.let { viewModel.removeDevice(it) }
                             selectedDeviceIp = null
                         }) {
                             Icon(
                                 imageVector = Icons.Default.Delete, 
-                                contentDescription = "Delete Device",
+                                contentDescription = stringResource(R.string.delete_device),
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
@@ -122,7 +133,7 @@ fun LayoutEditorScreen(
                     }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowForward, 
-                            contentDescription = "Animation Layout",
+                            contentDescription = stringResource(R.string.animation_layout_title),
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -139,11 +150,11 @@ fun LayoutEditorScreen(
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 ) {
-                    Icon(Icons.Default.Refresh, "Reboot All")
+                    Icon(Icons.Default.Refresh, stringResource(R.string.reboot_all))
                 }
 
                 FloatingActionButton(onClick = { showAddSheet = true }) {
-                    Icon(Icons.Default.Add, "Add Device")
+                    Icon(Icons.Default.Add, stringResource(R.string.add_device))
                 }
             }
         }
@@ -173,9 +184,9 @@ fun LayoutEditorScreen(
         if (showAddSheet) {
             ModalBottomSheet(onDismissRequest = { showAddSheet = false }) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Add Device", style = MaterialTheme.typography.titleLarge)
+                    Text(stringResource(R.string.add_device), style = MaterialTheme.typography.titleLarge)
                     if (discoveredDevices.isEmpty()) {
-                        Text("Scanning for WLED devices...", modifier = Modifier.padding(vertical = 16.dp))
+                        Text(stringResource(R.string.scanning_devices), modifier = Modifier.padding(vertical = 16.dp))
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                     } else {
                         LazyColumn {
@@ -200,203 +211,81 @@ fun LayoutEditorScreen(
     if (showRebootDialog) {
         AlertDialog(
             onDismissRequest = { showRebootDialog = false },
-            title = { Text("Reboot Devices") },
-            text = { Text("Reboot all WLED devices?") },
+            title = { Text(stringResource(R.string.reboot_dialog_title)) },
+            text = { Text(stringResource(R.string.reboot_dialog_text)) },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.rebootAllDevices()
                     showRebootDialog = false
-                }) { Text("Yes") }
+                }) { Text(stringResource(R.string.yes)) }
             },
             dismissButton = {
-                TextButton(onClick = { showRebootDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showRebootDialog = false }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
+    }
+
+    if (showDetailsDialog && selectedDevice != null) {
+        AlertDialog(
+            onDismissRequest = { showDetailsDialog = false },
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(stringResource(R.string.device_details_title))
+                    IconButton(onClick = { viewModel.forceRefreshDeviceConfig(selectedDevice) }) {
+                        Icon(Icons.Default.Refresh, stringResource(R.string.refresh))
+                    }
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(text = selectedDevice.name, style = MaterialTheme.typography.titleLarge)
+                    HorizontalDivider()
+                    DetailRow(stringResource(R.string.ip_address), selectedDevice.ip)
+                    // DetailRow(stringResource(R.string.mac_address), selectedDevice.macAddress) // User explicitly removed
+                    HorizontalDivider()
+                    DetailRow(stringResource(R.string.pixel_count), selectedDevice.pixelCount.toString())
+                    
+                    if (selectedDevice.is2D) {
+                        Text(stringResource(R.string.panel_info), style = MaterialTheme.typography.labelLarge)
+                        DetailRow(stringResource(R.string.matrix_dimensions), "${selectedDevice.matrixWidth} x ${selectedDevice.matrixHeight}")
+                        
+                        val serpentineStr = stringResource(if (selectedDevice.serpentine) R.string.yes else R.string.no)
+                        DetailRow(stringResource(R.string.serpentine), serpentineStr)
+                        
+                        DetailRow(stringResource(R.string.first_led), selectedDevice.firstLed)
+                        DetailRow(stringResource(R.string.orientation), selectedDevice.orientation)
+                        
+                        if (selectedDevice.panelDescription.isNotEmpty()) {
+                             Text(selectedDevice.panelDescription, style = MaterialTheme.typography.bodySmall)
+                        }
+                    } else {
+                        DetailRow(stringResource(R.string.segment_width), selectedDevice.segmentWidth.toString())
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDetailsDialog = false }) {
+                    Text(stringResource(R.string.close))
+                }
             }
         )
     }
 }
 
+
+
 @Composable
-fun LayoutCanvas(
-    installation: com.marsraver.wleddj.model.Installation,
-    selectedDevice: WledDevice?,
-    onSelectDevice: (WledDevice?) -> Unit,
-    onMoveDevice: (WledDevice, Float, Float, Float, Float, Float) -> Unit,
-    onUpdateViewport: (Float, Offset) -> Unit,
-    onInteractionEnd: () -> Unit
-) {
-    val currentInstallationState = rememberUpdatedState(installation)
-    val currentSelectedDeviceState = rememberUpdatedState(selectedDevice)
-    val currentOnSelectDeviceState = rememberUpdatedState(onSelectDevice)
-    val currentOnMoveDeviceState = rememberUpdatedState(onMoveDevice)
-    val currentOnUpdateViewportState = rememberUpdatedState(onUpdateViewport)
-    val currentOnInteractionEndState = rememberUpdatedState(onInteractionEnd)
-
-    // Camera State (Virtual Coordinates)
-    // Default to Center if null (1000x1000 -> 500,500)
-    val defaultCx = installation.width / 2f
-    val defaultCy = installation.height / 2f
-    
-    var zoom by remember(installation.id) { mutableStateOf(installation.cameraZoom) }
-    var cx by remember(installation.id) { mutableStateOf(installation.cameraX ?: defaultCx) }
-    var cy by remember(installation.id) { mutableStateOf(installation.cameraY ?: defaultCy) }
-
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val screenWidth = constraints.maxWidth.toFloat()
-        val screenHeight = constraints.maxHeight.toFloat()
-        val screenCenter = Offset(screenWidth / 2f, screenHeight / 2f)
-        
-        // Base Scale (100% Fit based on Width/Height)
-        val install = installation
-        val baseScale = remember(install.width, install.height, screenWidth, screenHeight) {
-            val sx = screenWidth / install.width
-            val sy = screenHeight / install.height
-            minOf(sx, sy)
-        }
-
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                     awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        
-                        // Transform Helper
-                        // Screen = (Virtual - Cam) * Scale + ScreenCenter
-                        val currentScale = baseScale * zoom
-                        
-                        fun screenToVirtual(sx: Float, sy: Float): Offset {
-                            val vx = (sx - screenCenter.x) / currentScale + cx
-                            val vy = (sy - screenCenter.y) / currentScale + cy
-                            return Offset(vx, vy)
-                        }
-                        
-                        // 1. HIT TEST
-                        val virtualPoint = screenToVirtual(down.position.x, down.position.y)
-                        val installDevices: List<WledDevice> = installation.devices
-                        val hitDevice = installDevices.find { device ->
-                             virtualPoint.x >= device.x && virtualPoint.x <= device.x + device.width &&
-                             virtualPoint.y >= device.y && virtualPoint.y <= device.y + device.height
-                        }
-                        
-                        currentOnSelectDeviceState.value(hitDevice)
-                        
-                        if (hitDevice != null) {
-                            // DEVICE DRAG
-                            var dragX = hitDevice.x
-                            var dragY = hitDevice.y
-                            while (true) {
-                                val event = awaitPointerEvent()
-                                if (event.changes.any { it.isConsumed }) break
-                                val panChange = event.calculatePan()
-                                if (panChange != Offset.Zero) {
-                                     val dx = panChange.x / currentScale
-                                     val dy = panChange.y / currentScale
-                                     dragX += dx
-                                     dragY += dy
-                                     
-                                     // SNAP TO GRID (10px)
-                                     val snapX = (dragX / 10f).roundToInt() * 10f
-                                     val snapY = (dragY / 10f).roundToInt() * 10f
-                                     
-                                     currentOnMoveDeviceState.value(hitDevice, snapX, snapY, hitDevice.width, hitDevice.height, hitDevice.rotation)
-                                     event.changes.forEach { it.consume() }
-                                }
-                                if (!event.changes.any { it.pressed }) {
-                                    currentOnInteractionEndState.value()
-                                    break
-                                }
-                            }
-                        } else {
-                            // CAMERA PAN/ZOOM
-                            while (true) {
-                                val event = awaitPointerEvent()
-                                if (event.changes.any { it.isConsumed }) break
-                                
-                                val zoomChange = event.calculateZoom()
-                                val panChange = event.calculatePan()
-                                val centroid = event.calculateCentroid(useCurrent = true)
-                                
-                                if (zoomChange != 1f || panChange != Offset.Zero) {
-                                     // 1. Update Zoom
-                                     val oldZoom = zoom
-                                     zoom *= zoomChange
-                                     zoom = zoom.coerceIn(0.1f, 20f)
-                                     
-                                     // 2. Update Camera Position (Pan)
-                                     // Standard: Dragging screen px moves camera inverse.
-                                     // cx -= dx / scale
-                                     val effectiveScale = baseScale * zoom
-                                     cx -= panChange.x / effectiveScale
-                                     cy -= panChange.y / effectiveScale
-                                     
-                                     // 3. Zoom Around Centroid
-                                     if (zoomChange != 1f) {
-                                         val offX = centroid.x - screenCenter.x
-                                         val offY = centroid.y - screenCenter.y
-                                         val oldS = baseScale * oldZoom
-                                         val newS = baseScale * zoom
-                                         // Shift camera to keep point under centroid stable
-                                         val shiftX = offX * (1/oldS - 1/newS)
-                                         val shiftY = offY * (1/oldS - 1/newS)
-                                         cx -= shiftX
-                                         cy -= shiftY
-                                     }
-                                     
-                                     currentOnUpdateViewportState.value(zoom, Offset(cx, cy))
-                                     event.changes.forEach { it.consume() }
-                                }
-                                
-                                if (!event.changes.any { it.pressed }) {
-                                    currentOnInteractionEndState.value()
-                                    break
-                                }
-                            }
-                        }
-                     }
-                }
-        ) {
-            // DRAW
-            val totalScale = baseScale * zoom
-            // Transform:
-            // 1. Translate ScreenCenter
-            // 2. Scale
-            // 3. Translate -Cam
-            
-            withTransform({
-                translate(left = screenCenter.x, top = screenCenter.y)
-                scale(totalScale, totalScale, pivot = Offset.Zero)
-                translate(left = -cx, top = -cy)
-            }) {
-                // Draw Devices
-                installation.devices.forEach { device ->
-                    val isSelected = device == selectedDevice
-                    drawRect(
-                        color = if (isSelected) Color(0xFF4CAF50).copy(alpha = 0.7f) else Color(0xFF2196F3).copy(alpha = 0.5f),
-                        topLeft = Offset(device.x, device.y),
-                        size = Size(device.width, device.height)
-                    )
-                     drawRect(
-                        color = if (isSelected) Color.Yellow else Color.White,
-                        style = Stroke(width = (if (isSelected) 4f else 2f) / totalScale),
-                        topLeft = Offset(device.x, device.y),
-                        size = Size(device.width, device.height)
-                     )
-                     val dotsX = 10 
-                     val dotsY = (dotsX * (device.height / device.width)).roundToInt().coerceAtLeast(1)
-                     val stepX = device.width / dotsX
-                     val stepY = device.height / dotsY
-                     for(i in 0 until dotsX) {
-                        for(j in 0 until dotsY) {
-                             drawCircle(
-                                 color = Color.White.copy(alpha = 0.3f),
-                                 radius = 2f / totalScale,
-                                 center = Offset(device.x + stepX * i + stepX/2, device.y + stepY * j + stepY/2)
-                             )
-                        }
-                     }
-                }
-            }
-        }
+fun DetailRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 

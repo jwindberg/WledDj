@@ -1,13 +1,9 @@
 package com.marsraver.wleddj.animations
- 
+
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.RectF
 import com.marsraver.wleddj.engine.Animation
-import kotlin.random.Random
-
-
 
 class BouncingBallAnimation(
     private var x: Float = 50f,
@@ -79,5 +75,3 @@ class BouncingBallAnimation(
         return false
     }
 }
-
-
