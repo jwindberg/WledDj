@@ -6,7 +6,6 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import com.marsraver.wleddj.engine.Animation
 import com.marsraver.wleddj.engine.color.Palette
-import com.marsraver.wleddj.engine.color.Palettes
 import kotlin.random.Random
 
 /**
@@ -15,7 +14,7 @@ import kotlin.random.Random
  */
 class MatrixAnimation : Animation {
 
-    private var _palette: Palette = Palettes.get("Forest") ?: Palettes.getDefault()
+    private var _palette: Palette = Palette.fromName("Forest") ?: Palette.DEFAULT
     override var currentPalette: Palette?
         get() = _palette
         set(value) { if (value != null) _palette = value }

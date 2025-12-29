@@ -14,10 +14,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 
+import com.marsraver.wleddj.engine.color.Palette
+
 @Composable
 fun PalettePickerDialog(
-    paletteNames: List<String>,
-    onPaletteSelected: (String) -> Unit,
+    palettes: List<Palette>,
+    onPaletteSelected: (Palette) -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -26,13 +28,13 @@ fun PalettePickerDialog(
         text = {
             Column(modifier = Modifier.heightIn(max=300.dp)) {
                 androidx.compose.foundation.lazy.LazyColumn {
-                     items(paletteNames.size) { index ->
-                         val name = paletteNames[index]
+                     items(palettes.size) { index ->
+                         val pal = palettes[index]
                          TextButton(
-                             onClick = { onPaletteSelected(name) },
+                             onClick = { onPaletteSelected(pal) },
                              modifier = Modifier.fillMaxWidth()
                          ) {
-                             Text(name)
+                             Text(pal.displayName)
                          }
                      }
                 }
@@ -46,11 +48,9 @@ fun PalettePickerDialog(
 
 @Composable
 fun PaletteTab(onColorPick: (Int) -> Unit) {
-    var selectedPaletteName by remember { mutableStateOf("Standard") }
+    var selectedPalette by remember { mutableStateOf(Palette.DEFAULT) }
     var expanded by remember { mutableStateOf(false) }
-    val currentPalette = com.marsraver.wleddj.engine.color.Palettes.get(selectedPaletteName) 
-        ?: com.marsraver.wleddj.engine.color.Palettes.getDefault()
-    val colors = currentPalette.colors
+    val colors = selectedPalette.colors
 
     Column {
         Box(modifier = Modifier.fillMaxWidth()) {
@@ -58,7 +58,7 @@ fun PaletteTab(onColorPick: (Int) -> Unit) {
                 onClick = { expanded = true },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Source: $selectedPaletteName")
+                Text("Source: ${selectedPalette.displayName}")
             }
             
             DropdownMenu(
@@ -66,11 +66,11 @@ fun PaletteTab(onColorPick: (Int) -> Unit) {
                 onDismissRequest = { expanded = false },
                 modifier = Modifier.heightIn(max = 300.dp) // Limit height
             ) {
-                com.marsraver.wleddj.engine.color.Palettes.getNames().forEach { name ->
+                Palette.entries.forEach { pal ->
                     DropdownMenuItem(
-                        text = { Text(name) },
+                        text = { Text(pal.displayName) },
                         onClick = {
-                            selectedPaletteName = name
+                            selectedPalette = pal
                             expanded = false
                         }
                     )

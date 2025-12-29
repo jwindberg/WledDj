@@ -10,11 +10,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.marsraver.wleddj.R
 import androidx.compose.material.icons.filled.MusicNote
+import com.marsraver.wleddj.model.AnimationType
 
 @Composable
 fun AnimationSelectionSheet(
     modifier: Modifier = Modifier,
-    onSelect: (String) -> Unit
+    onSelect: (AnimationType) -> Unit
 ) {
     Surface(
         modifier = modifier
@@ -40,9 +41,9 @@ fun AnimationSelectionSheet(
                 items(animations.size) { index ->
                     val anim = animations[index]
                     AnimationListItem(
-                        type = anim.name,
+                        type = anim.name, // Uses displayName property from metadata
                         isAudioReactive = anim.isAudioReactive,
-                        onClick = { onSelect(anim.name) }
+                        onClick = { onSelect(anim.type) }
                     )
                 }
             }

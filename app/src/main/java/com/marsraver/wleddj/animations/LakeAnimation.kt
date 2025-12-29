@@ -10,7 +10,7 @@ import kotlin.math.PI
  * Lake - Water ripple effect
  * Migrated to WledDj.
  */
-import com.marsraver.wleddj.engine.color.Palettes
+import com.marsraver.wleddj.engine.color.Palette
 
 class LakeAnimation : BasePixelAnimation() {
 
@@ -20,7 +20,7 @@ class LakeAnimation : BasePixelAnimation() {
 
     override fun onInit() {
         startTimeNs = System.nanoTime()
-        currentPalette = Palettes.get("Ocean")
+        currentPalette = Palette.fromName("Ocean")
     }
 
     override fun update(now: Long): Boolean {

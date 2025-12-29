@@ -10,7 +10,7 @@ import com.marsraver.wleddj.repository.InstallationRepository
 import com.marsraver.wleddj.engine.RenderEngine
 // Animations imports delegated to AnimationFactory
 import com.marsraver.wleddj.engine.color.Palette
-import com.marsraver.wleddj.engine.color.Palettes
+import com.marsraver.wleddj.model.AnimationType
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -85,8 +85,7 @@ class PlayerViewModel(
                  anim.secondaryColor = saved.secondaryColor
              }
              if (saved.paletteName != null && anim.supportsPalette()) {
-                 val pal = Palettes.get(saved.paletteName)
-                 if (pal != null) anim.currentPalette = pal
+                 anim.currentPalette = saved.paletteName
              }
              val region = com.marsraver.wleddj.model.AnimationRegion(
                  id = saved.id,
@@ -201,7 +200,7 @@ class PlayerViewModel(
         val supportsText: Boolean = false,
         val primaryColor: Int = android.graphics.Color.WHITE,
         val secondaryColor: Int = android.graphics.Color.BLACK,
-        val currentPaletteName: String = Palettes.DEFAULT_PALETTE_NAME,
+        val currentPalette: Palette = Palette.DEFAULT,
         val currentText: String = ""
     )
     
@@ -213,6 +212,8 @@ class PlayerViewModel(
         val region = if (id != null) _engine.value?.getRegions()?.find { it.id == id } else null
         val anim = region?.animation
         
+        val pal = anim?.currentPalette ?: Palette.DEFAULT
+
         if (anim != null) {
             _animationControlsState.value = AnimationControlsState(
                 hasSelection = true,
@@ -222,7 +223,7 @@ class PlayerViewModel(
                 supportsText = anim.supportsText(),
                 primaryColor = anim.primaryColor,
                 secondaryColor = anim.secondaryColor,
-                currentPaletteName = anim.currentPalette?.name ?: Palettes.DEFAULT_PALETTE_NAME,
+                currentPalette = pal,
                 currentText = if (anim.supportsText()) anim.getText() else ""
             )
         } else {
@@ -244,10 +245,9 @@ class PlayerViewModel(
         saveAnimations()
     }
     
-    fun setPalette(paletteName: String) {
+    fun setPalette(palette: Palette) {
         val anim = getSelectedAnimation() ?: return
-        val pal = Palettes.get(paletteName) ?: return
-        anim.currentPalette = pal
+        anim.currentPalette = palette
         refreshControlsState()
         saveAnimations()
     }
@@ -303,7 +303,7 @@ class PlayerViewModel(
         }
     }
 
-    fun onToolDropped(type: String, dropX: Float, dropY: Float, installW: Float, installH: Float, zoom: Float) {
+    fun onToolDropped(type: AnimationType, dropX: Float, dropY: Float, installW: Float, installH: Float, zoom: Float) {
         val isFullscreen = isFullscreenEffect(type)
         
         val size = if (isFullscreen) {
@@ -339,9 +339,9 @@ class PlayerViewModel(
         saveAnimations()
     }
 
-    private fun isFullscreenEffect(type: String): Boolean {
+    private fun isFullscreenEffect(type: AnimationType): Boolean {
         // Only TronRecognizer remains fullscreen by default for now
-        return type == "TronRecognizer"
+        return type == AnimationType.TRON_RECOGNIZER
     }
     
     private fun minCode(a: Float, b: Float): Float = if (a < b) a else b

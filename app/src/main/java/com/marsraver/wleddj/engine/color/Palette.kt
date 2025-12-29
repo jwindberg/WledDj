@@ -1,31 +1,146 @@
 package com.marsraver.wleddj.engine.color
 
 import android.graphics.Color
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 
-/**
- * Represents a color palette with a name and array of RGB colors.
- */
-data class Palette(
-    val name: String,
-    val colors: Array<RgbColor>
-) {
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
+@Serializable
+enum class Palette(val displayName: String, val colors: Array<RgbColor>) {
+    
+    @SerialName("Standard") STANDARD("Standard", arrayOf(
+        RgbColor(255, 0, 0),     // Red
+        RgbColor(0, 255, 0),     // Green
+        RgbColor(0, 0, 255),     // Blue
+        RgbColor(255, 255, 0),   // Yellow
+        RgbColor(0, 255, 255),   // Cyan
+        RgbColor(255, 0, 255),   // Magenta
+        RgbColor(255, 255, 255), // White
+        RgbColor(0, 0, 0),       // Black
+        RgbColor(128, 128, 128), // Gray
+        RgbColor(255, 152, 0),   // Orange
+        RgbColor(156, 39, 176),  // Purple
+        RgbColor(0, 150, 136),   // Teal
+        RgbColor(255, 193, 7),   // Amber
+        RgbColor(63, 81, 181),   // Indigo
+        RgbColor(233, 30, 99),   // Pink
+        RgbColor(205, 220, 57)   // Lime
+    )),
 
-        other as Palette
+    @SerialName("Rainbow") RAINBOW("Rainbow", arrayOf(
+        RgbColor(255, 0, 0),   // Red
+        RgbColor(255, 127, 0), // Orange
+        RgbColor(255, 255, 0), // Yellow
+        RgbColor(127, 255, 0), // Yellow-Green
+        RgbColor(0, 255, 0),   // Green
+        RgbColor(0, 255, 127), // Green-Cyan
+        RgbColor(0, 255, 255), // Cyan
+        RgbColor(0, 127, 255), // Cyan-Blue
+        RgbColor(0, 0, 255),   // Blue
+        RgbColor(127, 0, 255), // Blue-Purple
+        RgbColor(255, 0, 255), // Magenta
+        RgbColor(255, 0, 127)  // Magenta-Red
+    )),
 
-        if (name != other.name) return false
-        if (!colors.contentDeepEquals(other.colors)) return false
+    @SerialName("Party") PARTY("Party", arrayOf(
+        RgbColor(255, 0, 0),   // Red
+        RgbColor(255, 0, 255), // Magenta
+        RgbColor(0, 0, 255),   // Blue
+        RgbColor(0, 255, 255), // Cyan
+        RgbColor(0, 255, 0),   // Green
+        RgbColor(255, 255, 0), // Yellow
+        RgbColor(255, 127, 0), // Orange
+        RgbColor(255, 0, 0)    // Red
+    )),
 
-        return true
-    }
+    @SerialName("Ocean") OCEAN("Ocean", arrayOf(
+        RgbColor(0, 0, 128),   // Dark Blue
+        RgbColor(0, 0, 255),   // Blue
+        RgbColor(0, 127, 255), // Light Blue
+        RgbColor(0, 255, 255), // Cyan
+        RgbColor(64, 224, 208), // Turquoise
+        RgbColor(0, 255, 255), // Cyan
+        RgbColor(0, 127, 255), // Light Blue
+        RgbColor(0, 0, 255)    // Blue
+    )),
 
-    override fun hashCode(): Int {
-        var result = name.hashCode()
-        result = 31 * result + colors.contentDeepHashCode()
-        return result
-    }
+    @SerialName("Forest") FOREST("Forest", arrayOf(
+        RgbColor(0, 64, 0),    // Dark Green
+        RgbColor(0, 128, 0),  // Green
+        RgbColor(0, 255, 0),   // Bright Green
+        RgbColor(127, 255, 0), // Yellow-Green
+        RgbColor(255, 255, 0), // Yellow
+        RgbColor(127, 255, 0), // Yellow-Green
+        RgbColor(0, 255, 0),   // Bright Green
+        RgbColor(0, 128, 0)   // Green
+    )),
+
+    @SerialName("Lava") LAVA("Lava", arrayOf(
+        RgbColor(0, 0, 0),    // Black
+        RgbColor(64, 0, 0),   // Dark Red
+        RgbColor(128, 0, 0),  // Red
+        RgbColor(255, 0, 0),  // Bright Red
+        RgbColor(255, 64, 0), // Orange-Red
+        RgbColor(255, 127, 0), // Orange
+        RgbColor(255, 64, 0), // Orange-Red
+        RgbColor(255, 0, 0)   // Bright Red
+    )),
+
+    @SerialName("Cloud") CLOUD("Cloud", arrayOf(
+        RgbColor(64, 64, 64),  // Dark Gray
+        RgbColor(128, 128, 128), // Gray
+        RgbColor(192, 192, 192), // Light Gray
+        RgbColor(255, 255, 255), // White
+        RgbColor(192, 192, 192), // Light Gray
+        RgbColor(128, 128, 128), // Gray
+        RgbColor(64, 64, 64),  // Dark Gray
+        RgbColor(32, 32, 32)   // Very Dark Gray
+    )),
+
+    @SerialName("Sunset") SUNSET("Sunset", arrayOf(
+        RgbColor(0, 0, 0),    // Black
+        RgbColor(64, 0, 64),  // Dark Purple
+        RgbColor(128, 0, 128), // Purple
+        RgbColor(255, 0, 255), // Magenta
+        RgbColor(255, 64, 0), // Orange-Red
+        RgbColor(255, 127, 0), // Orange
+        RgbColor(255, 191, 0), // Yellow-Orange
+        RgbColor(255, 255, 0)  // Yellow
+    )),
+
+    @SerialName("Heat") HEAT("Heat", arrayOf(
+        RgbColor(0, 0, 0),    // Black
+        RgbColor(64, 0, 0),   // Dark Red
+        RgbColor(128, 0, 0),  // Red
+        RgbColor(255, 0, 0),  // Bright Red
+        RgbColor(255, 64, 0), // Orange-Red
+        RgbColor(255, 127, 0), // Orange
+        RgbColor(255, 191, 0), // Yellow-Orange
+        RgbColor(255, 255, 255) // White
+    )),
+
+    @SerialName("Ice") ICE("Ice", arrayOf(
+        RgbColor(0, 0, 0),    // Black
+        RgbColor(0, 0, 64),   // Dark Blue
+        RgbColor(0, 0, 128),  // Blue
+        RgbColor(0, 0, 255),  // Bright Blue
+        RgbColor(0, 64, 255), // Light Blue
+        RgbColor(0, 127, 255), // Cyan-Blue
+        RgbColor(0, 255, 255), // Cyan
+        RgbColor(255, 255, 255) // White
+    )),
+
+    @SerialName("Christmas") CHRISTMAS("Christmas", arrayOf(
+        RgbColor(255, 0, 0),    // Red
+        RgbColor(0, 255, 0),    // Green
+        RgbColor(255, 215, 0),  // Gold
+        RgbColor(255, 0, 0),    // Red
+        RgbColor(0, 255, 0),    // Green
+        RgbColor(192, 192, 192),// Silver
+        RgbColor(255, 0, 0),    // Red
+        RgbColor(0, 255, 0)     // Green
+    )),
+
+    @SerialName("Default") DEFAULT("Default", RAINBOW.colors);
 
     /**
      * Get color at index, wrapping if needed.
@@ -65,9 +180,6 @@ data class Palette(
         if (colors.isEmpty()) return Color.BLACK
         if (colors.size == 1) return colors[0].toInt()
 
-        // Normalize 0-255 to 0.0 - colors.size
-        // FastLED usually treats 255 as wrapping back to 0
-        // pos = (index % 256) / 256.0 * size
         val i = index and 0xFF // clamp to 0-255
         val pos = (i / 256.0) * colors.size
         
@@ -86,17 +198,16 @@ data class Palette(
     }
 
     companion object {
-        /**
-         * Returns a randomly selected palette from all available palettes.
-         * @return a randomly selected Palette
-         */
+        fun fromName(name: String?): Palette {
+             if (name == null) return DEFAULT
+             // Try strict find first for performance
+             val found = entries.find { it.name.equals(name, true) || it.displayName.equals(name, true) }
+             return found ?: DEFAULT
+        }
+        
         fun getRandom(): Palette {
-            val allPalettes = Palettes.all.values.toList()
-            return if (allPalettes.isNotEmpty()) {
-                allPalettes.random()
-            } else {
-                Palettes.getDefault()
-            }
+             val valid = entries.filter { it != DEFAULT }
+             return if (valid.isNotEmpty()) valid.random() else DEFAULT
         }
     }
 }

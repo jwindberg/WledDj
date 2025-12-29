@@ -135,7 +135,7 @@ fun PlayerScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(if (isInteractive) stringResource(R.string.performance_mode) else stringResource(R.string.animation_layout_title))
                         if (!isInteractive && selectedRegionId != null) {
-                             val animType = installation?.animations?.find { it.id == selectedRegionId }?.type ?: stringResource(R.string.unknown)
+                             val animType = installation?.animations?.find { it.id == selectedRegionId }?.type?.displayName ?: stringResource(R.string.unknown)
                              Text(
                                  text = animType,
                                  style = MaterialTheme.typography.bodySmall,

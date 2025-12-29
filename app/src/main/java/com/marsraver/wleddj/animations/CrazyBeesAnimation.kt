@@ -7,7 +7,6 @@ import android.graphics.Paint
 import android.graphics.Rect
 import com.marsraver.wleddj.engine.Animation
 import com.marsraver.wleddj.engine.color.Palette
-import com.marsraver.wleddj.engine.color.Palettes
 import kotlin.random.Random
 
 /**
@@ -17,7 +16,7 @@ import kotlin.random.Random
 class CrazyBeesAnimation : Animation {
 
     // --- Animation Interface ---
-    private var _palette: Palette = Palettes.getDefault()
+    private var _palette: Palette = Palette.DEFAULT
     override var currentPalette: Palette?
         get() = _palette
         set(value) { if (value != null) _palette = value }

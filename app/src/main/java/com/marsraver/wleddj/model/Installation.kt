@@ -2,6 +2,7 @@ package com.marsraver.wleddj.model
 
 import kotlinx.serialization.Serializable
 import java.util.UUID
+import com.marsraver.wleddj.engine.color.Palette
 
 @Serializable
 data class Installation(
@@ -22,7 +23,7 @@ data class Installation(
 @Serializable
 data class SavedAnimation(
     val id: String,
-    val type: String,
+    val type: AnimationType,
     val rectLeft: Float, 
     val rectTop: Float, 
     val rectRight: Float, 
@@ -31,5 +32,5 @@ data class SavedAnimation(
     val text: String? = null,
     val primaryColor: Int? = null,
     val secondaryColor: Int? = null,
-    val paletteName: String? = null
+    val paletteName: Palette? = null
 )

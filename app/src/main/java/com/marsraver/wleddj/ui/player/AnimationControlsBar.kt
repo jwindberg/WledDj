@@ -14,7 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.marsraver.wleddj.engine.color.Palettes
+import com.marsraver.wleddj.engine.color.Palette
 import com.marsraver.wleddj.ui.components.PalettePickerDialog
 
 @Composable
@@ -22,7 +22,7 @@ fun AnimationControlsBar(
     state: PlayerViewModel.AnimationControlsState,
     onPrimaryColorChange: (Int) -> Unit,
     onSecondaryColorChange: (Int) -> Unit,
-    onPaletteChange: (String) -> Unit,
+    onPaletteChange: (Palette) -> Unit,
     onTextChange: (String) -> Unit
 ) {
     if (!state.hasSelection) return
@@ -67,7 +67,7 @@ fun AnimationControlsBar(
                  colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                  shape = RoundedCornerShape(8.dp)
              ) {
-                 Text(state.currentPaletteName)
+                 Text(state.currentPalette.displayName)
              }
         }
         
@@ -107,7 +107,7 @@ fun AnimationControlsBar(
 
     if (showPalettePicker) {
         PalettePickerDialog(
-            paletteNames = Palettes.getNames(),
+            palettes = Palette.entries,
             onPaletteSelected = { 
                 onPaletteChange(it)
                 showPalettePicker = false 

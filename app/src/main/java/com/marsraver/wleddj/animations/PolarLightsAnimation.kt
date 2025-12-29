@@ -8,7 +8,6 @@ import android.graphics.Path
 import android.graphics.Shader
 import com.marsraver.wleddj.engine.Animation
 import com.marsraver.wleddj.engine.color.Palette
-import com.marsraver.wleddj.engine.color.Palettes
 import com.marsraver.wleddj.engine.math.MathUtils
 import kotlin.math.abs
 import kotlin.math.sin
@@ -19,7 +18,7 @@ import kotlin.math.sin
  */
 class PolarLightsAnimation : Animation {
 
-    private var _palette: Palette = Palettes.get("Forest") ?: Palettes.getDefault()
+    private var _palette: Palette = Palette.fromName("Forest") ?: Palette.DEFAULT
     override var currentPalette: Palette?
         get() = _palette
         set(value) { if (value != null) _palette = value }

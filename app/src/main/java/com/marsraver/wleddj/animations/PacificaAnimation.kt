@@ -7,7 +7,7 @@ import com.marsraver.wleddj.engine.math.MathUtils
  * Pacifica - Peaceful ocean waves
  * Migrated to WledDj.
  */
-import com.marsraver.wleddj.engine.color.Palettes
+import com.marsraver.wleddj.engine.color.Palette
 
 class PacificaAnimation : BasePixelAnimation() {
 
@@ -21,7 +21,7 @@ class PacificaAnimation : BasePixelAnimation() {
 
     override fun onInit() {
         startTimeNs = System.nanoTime()
-        currentPalette = Palettes.get("Ocean")
+        currentPalette = Palette.fromName("Ocean")
     }
 
     override fun update(now: Long): Boolean {

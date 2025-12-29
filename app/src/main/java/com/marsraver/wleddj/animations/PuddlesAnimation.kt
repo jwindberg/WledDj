@@ -6,7 +6,6 @@ import android.graphics.Paint
 import com.marsraver.wleddj.engine.Animation
 import com.marsraver.wleddj.engine.audio.LoudnessMeter
 import com.marsraver.wleddj.engine.color.Palette
-import com.marsraver.wleddj.engine.color.Palettes
 import kotlin.math.min
 import kotlin.random.Random
 
@@ -15,7 +14,7 @@ import kotlin.random.Random
  */
 class PuddlesAnimation : Animation {
 
-    private var _palette: Palette = Palettes.get(getDefaultPaletteName()) ?: Palettes.getDefault()
+    private var _palette: Palette = Palette.fromName(getDefaultPaletteName()) ?: Palette.DEFAULT
     override var currentPalette: Palette?
         get() = _palette
         set(value) { if (value != null) _palette = value }

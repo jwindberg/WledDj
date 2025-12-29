@@ -9,7 +9,7 @@ import kotlin.math.min
  * Plasmoid animation - Plasma-like effect with audio reactivity
  * Migrated to WledDj.
  */
-import com.marsraver.wleddj.engine.color.Palettes
+import com.marsraver.wleddj.engine.color.Palette
 
 class PlasmoidAnimation : BasePixelAnimation() {
 
@@ -26,7 +26,7 @@ class PlasmoidAnimation : BasePixelAnimation() {
         thatPhase = 0
         startTimeNs = System.nanoTime()
         loudnessMeter = LoudnessMeter()
-        currentPalette = Palettes.get("Rainbow")
+        currentPalette = Palette.fromName("Rainbow")
     }
 
     override fun update(now: Long): Boolean {

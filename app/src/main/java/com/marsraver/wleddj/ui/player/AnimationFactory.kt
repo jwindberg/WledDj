@@ -5,137 +5,143 @@ import com.marsraver.wleddj.animations.*
 import com.marsraver.wleddj.engine.Animation
 import com.marsraver.wleddj.model.AnimationRegion
 import com.marsraver.wleddj.model.SavedAnimation
+import com.marsraver.wleddj.model.AnimationType
+import com.marsraver.wleddj.engine.color.Palette
 
 object AnimationFactory {
 
-    fun createAnimation(type: String, context: Context, dropX: Float = 0f, dropY: Float = 0f): Animation {
+    fun createAnimation(type: AnimationType, context: Context, dropX: Float = 0f, dropY: Float = 0f): Animation {
         return when(type) {
-            "Ball" -> BouncingBallAnimation(dropX, dropY, 30f)
-            "Aurora Borealis" -> AuroraBorealisAnimation()
-            "Blurz" -> BlurzAnimation()
-            "GEQ" -> GeqAnimation()
-            "MusicBall" -> MusicBallAnimation()
-            "Flashlight" -> FlashlightAnimation()
-            "DeathStarRun" -> DeathStarAnimation(context)
-            "Spectrogram" -> SpectrogramAnimation()
-            "Fireflies" -> FirefliesAnimation()
-            "TronRecognizer" -> TronRecognizerAnimation(context)
-            "SpectrumTree" -> SpectrumTreeAnimation()
-            "Soap" -> SoapAnimation()
-            "Akemi" -> AkemiAnimation()
-            "Fire 2012 2D" -> Fire2012_2DAnimation()
-            "FireNoise2D" -> FireNoise2DAnimation()
-            "Noise2D" -> Noise2DAnimation()
-            "PlasmaBall2D" -> PlasmaBall2DAnimation()
-            "Matrix" -> MatrixAnimation()
-            "MetaBalls" -> MetaBallsAnimation()
-            "Game Of Life" -> GameOfLifeAnimation()
-            "Julia" -> JuliaAnimation()
-            "Swirl" -> SwirlAnimation()
-            "Pacifica" -> PacificaAnimation()
-            "Blobs" -> BlobsAnimation()
-            "DistortionWaves" -> DistortionWavesAnimation()
-            "Plasmoid" -> PlasmoidAnimation()
-            "PolarLights" -> PolarLightsAnimation()
-            "Space Ships" -> SpaceShipsAnimation()
-            "SquareSwirl" -> SquareSwirlAnimation()
-            "Puddles" -> PuddlesAnimation()
-            "Lissajous" -> LissajousAnimation()
-            "Tartan" -> TartanAnimation()
-            "Waverly" -> WaverlyAnimation()
-            "CrazyBees" -> CrazyBeesAnimation()
-            "GhostRider" -> GhostRiderAnimation()
-            "SunRadiation" -> SunRadiationAnimation()
-            "WashingMachine" -> WashingMachineAnimation()
-            "RotoZoomer" -> RotoZoomerAnimation()
-            "Tetrix" -> TetrixAnimation()
-            "Hiphotic" -> HiphoticAnimation()
-            "BlackHole" -> BlackHoleAnimation()
-            "FunkyPlank" -> FunkyPlankAnimation()
-            "DriftRose" -> DriftRoseAnimation()
-            "Matripix" -> MatripixAnimation()
-            "WavingCell" -> WavingCellAnimation()
-            "Frizzles" -> FrizzlesAnimation()
-            "PixelWave" -> PixelWaveAnimation()
-            "FreqMatrix" -> FreqMatrixAnimation()
-            "Lake" -> LakeAnimation()
-            "DnaSpiral" -> DnaSpiralAnimation()
-            "Globe" -> GlobeAnimation()
-            "Fireworks" -> FireworksAnimation()
-            "InfiniteTunnel" -> InfiniteTunnelAnimation()
-            "Sonar" -> SonarAnimation()
-            "ScrollingText" -> ScrollingTextAnimation()
-            "Aquarium" -> AquariumAnimation()
-            "FractalZoom" -> FractalZoomAnimation()
-            "Physarum" -> PhysarumAnimation()
-            "ReactionDiffusion" -> ReactionDiffusionAnimation()
-            else -> BouncingBallAnimation(dropX, dropY, 30f)
+            AnimationType.BALL -> BouncingBallAnimation(dropX, dropY, 30f)
+            AnimationType.AURORA_BOREALIS -> AuroraBorealisAnimation()
+            AnimationType.BLURZ -> BlurzAnimation()
+            AnimationType.GEQ -> GeqAnimation()
+            AnimationType.MUSIC_BALL -> MusicBallAnimation()
+            AnimationType.FLASHLIGHT -> FlashlightAnimation()
+            AnimationType.DEATH_STAR_RUN -> DeathStarAnimation(context)
+            AnimationType.SPECTROGRAM -> SpectrogramAnimation()
+            AnimationType.FIREFLIES -> FirefliesAnimation()
+            AnimationType.TRON_RECOGNIZER -> TronRecognizerAnimation(context)
+            AnimationType.SPECTRUM_TREE -> SpectrumTreeAnimation()
+            AnimationType.SOAP -> SoapAnimation()
+            AnimationType.AKEMI -> AkemiAnimation()
+            AnimationType.FIRE_2012_2D -> Fire2012_2DAnimation()
+            AnimationType.FIRE_NOISE_2D -> FireNoise2DAnimation()
+            AnimationType.NOISE_2D -> Noise2DAnimation()
+            AnimationType.PLASMA_BALL_2D -> PlasmaBall2DAnimation()
+            AnimationType.MATRIX -> MatrixAnimation()
+            AnimationType.META_BALLS -> MetaBallsAnimation()
+            AnimationType.GAME_OF_LIFE -> GameOfLifeAnimation()
+            AnimationType.JULIA -> JuliaAnimation()
+            AnimationType.SWIRL -> SwirlAnimation()
+            AnimationType.PACIFICA -> PacificaAnimation()
+            AnimationType.BLOBS -> BlobsAnimation()
+            AnimationType.DISTORTION_WAVES -> DistortionWavesAnimation()
+            AnimationType.PLASMOID -> PlasmoidAnimation()
+            AnimationType.POLAR_LIGHTS -> PolarLightsAnimation()
+            AnimationType.SPACE_SHIPS -> SpaceShipsAnimation()
+            AnimationType.SQUARE_SWIRL -> SquareSwirlAnimation()
+            AnimationType.PUDDLES -> PuddlesAnimation()
+            AnimationType.LISSAJOUS -> LissajousAnimation()
+            AnimationType.TARTAN -> TartanAnimation()
+            AnimationType.WAVERLY -> WaverlyAnimation()
+            AnimationType.CRAZY_BEES -> CrazyBeesAnimation()
+            AnimationType.GHOST_RIDER -> GhostRiderAnimation()
+            AnimationType.SUN_RADIATION -> SunRadiationAnimation()
+            AnimationType.WASHING_MACHINE -> WashingMachineAnimation()
+            AnimationType.ROTO_ZOOMER -> RotoZoomerAnimation()
+            AnimationType.TETRIX -> TetrixAnimation()
+            AnimationType.HIPHOTIC -> HiphoticAnimation()
+            AnimationType.BLACK_HOLE -> BlackHoleAnimation()
+            AnimationType.FUNKY_PLANK -> FunkyPlankAnimation()
+            AnimationType.DRIFT_ROSE -> DriftRoseAnimation()
+            AnimationType.MATRIPIX -> MatripixAnimation()
+            AnimationType.WAVING_CELL -> WavingCellAnimation()
+            AnimationType.FRIZZLES -> FrizzlesAnimation()
+            AnimationType.PIXEL_WAVE -> PixelWaveAnimation()
+            AnimationType.FREQ_MATRIX -> FreqMatrixAnimation()
+            AnimationType.LAKE -> LakeAnimation()
+            AnimationType.DNA_SPIRAL -> DnaSpiralAnimation()
+            AnimationType.GLOBE -> GlobeAnimation()
+            AnimationType.FIREWORKS -> FireworksAnimation()
+            AnimationType.INFINITE_TUNNEL -> InfiniteTunnelAnimation()
+            AnimationType.SONAR -> SonarAnimation()
+            AnimationType.SCROLLING_TEXT -> ScrollingTextAnimation()
+            AnimationType.AQUARIUM -> AquariumAnimation()
+            AnimationType.FRACTAL_ZOOM -> FractalZoomAnimation()
+            AnimationType.PHYSARUM -> PhysarumAnimation()
+            AnimationType.REACTION_DIFFUSION -> ReactionDiffusionAnimation()
+            
+            AnimationType.UNKNOWN -> BouncingBallAnimation(dropX, dropY, 30f)
         }
     }
 
     fun createSavedAnimation(region: AnimationRegion): SavedAnimation {
         val type = when(region.animation) {
-            is GlobeAnimation -> "Globe"
-            is BouncingBallAnimation -> "Ball"
-            is FireworksAnimation -> "Fireworks"
-            is InfiniteTunnelAnimation -> "InfiniteTunnel"
-            is FractalZoomAnimation -> "FractalZoom"
-            is PhysarumAnimation -> "Physarum"
-            is ReactionDiffusionAnimation -> "ReactionDiffusion"
-            is SonarAnimation -> "Sonar"
-            is ScrollingTextAnimation -> "ScrollingText"
-            is AquariumAnimation -> "Aquarium"
-            is AuroraBorealisAnimation -> "Aurora Borealis"
-            is BlurzAnimation -> "Blurz"
-            is GeqAnimation -> "GEQ"
-            is SpectrogramAnimation -> "Spectrogram"
-            is FlashlightAnimation -> "Flashlight"
-            is MusicBallAnimation -> "MusicBall"
-            is DeathStarAnimation -> "DeathStarRun"
-            is FirefliesAnimation -> "Fireflies"
-            is TronRecognizerAnimation -> "TronRecognizer"
-            is SpectrumTreeAnimation -> "SpectrumTree"
-            is SoapAnimation -> "Soap"
-            is AkemiAnimation -> "Akemi"
-            is Fire2012_2DAnimation -> "Fire 2012 2D"
-            is FireNoise2DAnimation -> "FireNoise2D"
-            is Noise2DAnimation -> "Noise2D"
-            is PlasmaBall2DAnimation -> "PlasmaBall2D"
-            is MatrixAnimation -> "Matrix"
-            is MetaBallsAnimation -> "MetaBalls"
-            is GameOfLifeAnimation -> "Game Of Life"
-            is JuliaAnimation -> "Julia"
-            is SwirlAnimation -> "Swirl"
-            is PacificaAnimation -> "Pacifica"
-            is BlobsAnimation -> "Blobs"
-            is DistortionWavesAnimation -> "DistortionWaves"
-            is PlasmoidAnimation -> "Plasmoid"
-            is PolarLightsAnimation -> "PolarLights"
-            is SpaceShipsAnimation -> "Space Ships"
-            is SquareSwirlAnimation -> "SquareSwirl"
-            is PuddlesAnimation -> "Puddles"
-            is LissajousAnimation -> "Lissajous"
-            is TartanAnimation -> "Tartan"
-            is WaverlyAnimation -> "Waverly"
-            is CrazyBeesAnimation -> "CrazyBees"
-            is GhostRiderAnimation -> "GhostRider"
-            is SunRadiationAnimation -> "SunRadiation"
-            is WashingMachineAnimation -> "WashingMachine"
-            is RotoZoomerAnimation -> "RotoZoomer"
-            is TetrixAnimation -> "Tetrix"
-            is HiphoticAnimation -> "Hiphotic"
-            is BlackHoleAnimation -> "BlackHole"
-            is FunkyPlankAnimation -> "FunkyPlank"
-            is DriftRoseAnimation -> "DriftRose"
-            is MatripixAnimation -> "Matripix"
-            is WavingCellAnimation -> "WavingCell"
-            is FrizzlesAnimation -> "Frizzles"
-            is PixelWaveAnimation -> "PixelWave"
-            is FreqMatrixAnimation -> "FreqMatrix"
-            is LakeAnimation -> "Lake"
-            is DnaSpiralAnimation -> "DnaSpiral"
-            else -> "Ball"
+            is GlobeAnimation -> AnimationType.GLOBE
+            is BouncingBallAnimation -> AnimationType.BALL
+            is FireworksAnimation -> AnimationType.FIREWORKS
+            is InfiniteTunnelAnimation -> AnimationType.INFINITE_TUNNEL
+            is FractalZoomAnimation -> AnimationType.FRACTAL_ZOOM
+            is PhysarumAnimation -> AnimationType.PHYSARUM
+            is ReactionDiffusionAnimation -> AnimationType.REACTION_DIFFUSION
+            is SonarAnimation -> AnimationType.SONAR
+            is ScrollingTextAnimation -> AnimationType.SCROLLING_TEXT
+            is AquariumAnimation -> AnimationType.AQUARIUM
+            is AuroraBorealisAnimation -> AnimationType.AURORA_BOREALIS
+            is BlurzAnimation -> AnimationType.BLURZ
+            is GeqAnimation -> AnimationType.GEQ
+            is SpectrogramAnimation -> AnimationType.SPECTROGRAM
+            is FlashlightAnimation -> AnimationType.FLASHLIGHT
+            is MusicBallAnimation -> AnimationType.MUSIC_BALL
+            is DeathStarAnimation -> AnimationType.DEATH_STAR_RUN
+            is FirefliesAnimation -> AnimationType.FIREFLIES
+            is TronRecognizerAnimation -> AnimationType.TRON_RECOGNIZER
+            is SpectrumTreeAnimation -> AnimationType.SPECTRUM_TREE
+            is SoapAnimation -> AnimationType.SOAP
+            is AkemiAnimation -> AnimationType.AKEMI
+            is Fire2012_2DAnimation -> AnimationType.FIRE_2012_2D
+            is FireNoise2DAnimation -> AnimationType.FIRE_NOISE_2D
+            is Noise2DAnimation -> AnimationType.NOISE_2D
+            is PlasmaBall2DAnimation -> AnimationType.PLASMA_BALL_2D
+            is MatrixAnimation -> AnimationType.MATRIX
+            is MetaBallsAnimation -> AnimationType.META_BALLS
+            is GameOfLifeAnimation -> AnimationType.GAME_OF_LIFE
+            is JuliaAnimation -> AnimationType.JULIA
+            is SwirlAnimation -> AnimationType.SWIRL
+            is PacificaAnimation -> AnimationType.PACIFICA
+            is BlobsAnimation -> AnimationType.BLOBS
+            is DistortionWavesAnimation -> AnimationType.DISTORTION_WAVES
+            is PlasmoidAnimation -> AnimationType.PLASMOID
+            is PolarLightsAnimation -> AnimationType.POLAR_LIGHTS
+            is SpaceShipsAnimation -> AnimationType.SPACE_SHIPS
+            is SquareSwirlAnimation -> AnimationType.SQUARE_SWIRL
+            is PuddlesAnimation -> AnimationType.PUDDLES
+            is LissajousAnimation -> AnimationType.LISSAJOUS
+            is TartanAnimation -> AnimationType.TARTAN
+            is WaverlyAnimation -> AnimationType.WAVERLY
+            is CrazyBeesAnimation -> AnimationType.CRAZY_BEES
+            is GhostRiderAnimation -> AnimationType.GHOST_RIDER
+            is SunRadiationAnimation -> AnimationType.SUN_RADIATION
+            is WashingMachineAnimation -> AnimationType.WASHING_MACHINE
+            is RotoZoomerAnimation -> AnimationType.ROTO_ZOOMER
+            is TetrixAnimation -> AnimationType.TETRIX
+            is HiphoticAnimation -> AnimationType.HIPHOTIC
+            is BlackHoleAnimation -> AnimationType.BLACK_HOLE
+            is FunkyPlankAnimation -> AnimationType.FUNKY_PLANK
+            is DriftRoseAnimation -> AnimationType.DRIFT_ROSE
+            is MatripixAnimation -> AnimationType.MATRIPIX
+            is WavingCellAnimation -> AnimationType.WAVING_CELL
+            is FrizzlesAnimation -> AnimationType.FRIZZLES
+            is PixelWaveAnimation -> AnimationType.PIXEL_WAVE
+            is FreqMatrixAnimation -> AnimationType.FREQ_MATRIX
+            is LakeAnimation -> AnimationType.LAKE
+            is DnaSpiralAnimation -> AnimationType.DNA_SPIRAL
+            else -> AnimationType.BALL
         }
+        
+        // Palette is now an Enum, so we can directly access it from the animation
+        val paletteName = region.animation.currentPalette
 
         return SavedAnimation(
             id = region.id,
@@ -148,31 +154,17 @@ object AnimationFactory {
             text = if (region.animation.supportsText()) region.animation.getText() else null,
             primaryColor = if (region.animation.supportsPrimaryColor()) region.animation.primaryColor else null,
             secondaryColor = if (region.animation.supportsSecondaryColor()) region.animation.secondaryColor else null,
-            paletteName = if (region.animation.supportsPalette()) region.animation.currentPalette?.name else null
+            paletteName = paletteName
         )
     }
 
     fun getAvailableAnimations(): List<AnimationMetadata> {
-        val audioReactive = setOf(
-            "GEQ", "MusicBall", "SpectrumTree", "Fireworks", "InfiniteTunnel", "Sonar"
-        )
-        
-        return listOf(
-            "Akemi", "Aquarium", "Fire 2012 2D", "FireNoise2D", "Noise2D", "PlasmaBall2D",
-            "Matrix", "MetaBalls", "Game Of Life", "Julia", "Swirl", "Pacifica", "Blobs",
-            "DistortionWaves", "Plasmoid", "PolarLights", "Space Ships", "SquareSwirl",
-            "Puddles", "Lissajous", "Tartan", "Waverly", "CrazyBees", "GhostRider",
-            "SunRadiation", "WashingMachine", "RotoZoomer", "Tetrix", "Hiphotic",
-            "BlackHole", "FunkyPlank", "DriftRose", "Matripix", "WavingCell", "Frizzles",
-            "PixelWave", "FreqMatrix", "Lake", "DnaSpiral", "Globe", "Ball", 
-            "Spectrogram", "InfiniteTunnel", "FractalZoom", "Sonar", "ScrollingText", "Fireworks",
-            "Aurora Borealis", "Blurz", "GEQ", "MusicBall", "DeathStarRun",
-            "Flashlight", "Fireflies", "TronRecognizer", "SpectrumTree", "Soap", "Physarum",
-            "ReactionDiffusion"
-        ).sorted().map { name ->
-            AnimationMetadata(name, audioReactive.contains(name))
+        return AnimationType.entries.filter { it != AnimationType.UNKNOWN }.sortedBy { it.displayName }.map { type ->
+            AnimationMetadata(type, type.isAudioReactive)
         }
     }
 
-    data class AnimationMetadata(val name: String, val isAudioReactive: Boolean)
+    data class AnimationMetadata(val type: AnimationType, val isAudioReactive: Boolean) {
+        val name get() = type.displayName
+    }
 }

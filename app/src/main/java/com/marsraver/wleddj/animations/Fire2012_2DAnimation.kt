@@ -8,7 +8,7 @@ import kotlin.random.Random
  * Vertical Fire simulation for 2D Matrices.
  * Migrated to WledDj.
  */
-import com.marsraver.wleddj.engine.color.Palettes
+import com.marsraver.wleddj.engine.color.Palette
 
 class Fire2012_2DAnimation : BasePixelAnimation() {
     
@@ -18,7 +18,7 @@ class Fire2012_2DAnimation : BasePixelAnimation() {
     
     override fun onInit() {
         heat = IntArray(width * height)
-        currentPalette = Palettes.get("Heat")
+        currentPalette = Palette.fromName("Heat")
     }
     
     override fun update(now: Long): Boolean {

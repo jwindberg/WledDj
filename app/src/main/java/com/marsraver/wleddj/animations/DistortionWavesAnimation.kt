@@ -7,7 +7,7 @@ import com.marsraver.wleddj.engine.math.MathUtils
  * Distortion Waves animation
  * Migrated to WledDj.
  */
-import com.marsraver.wleddj.engine.color.Palettes
+import com.marsraver.wleddj.engine.color.Palette
 
 class DistortionWavesAnimation : BasePixelAnimation() {
 
@@ -21,7 +21,7 @@ class DistortionWavesAnimation : BasePixelAnimation() {
 
     override fun onInit() {
         startTimeMs = System.currentTimeMillis()
-        currentPalette = Palettes.get("Rainbow")
+        currentPalette = Palette.fromName("Rainbow")
     }
 
     override fun update(now: Long): Boolean {

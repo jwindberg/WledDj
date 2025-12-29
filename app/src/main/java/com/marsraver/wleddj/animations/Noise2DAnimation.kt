@@ -7,7 +7,7 @@ import com.marsraver.wleddj.engine.math.MathUtils
  * Noise2D - Basic 2D Perlin noise pattern
  * Migrated to WledDj.
  */
-import com.marsraver.wleddj.engine.color.Palettes
+import com.marsraver.wleddj.engine.color.Palette
 
 class Noise2DAnimation : BasePixelAnimation() {
 
@@ -17,7 +17,7 @@ class Noise2DAnimation : BasePixelAnimation() {
 
     override fun onInit() {
         startTimeNs = System.nanoTime()
-        currentPalette = Palettes.get("Rainbow")
+        currentPalette = Palette.fromName("Rainbow")
     }
 
     override fun update(now: Long): Boolean {

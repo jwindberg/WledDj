@@ -7,7 +7,6 @@ import android.graphics.Paint
 import android.graphics.Rect
 import com.marsraver.wleddj.engine.Animation
 import com.marsraver.wleddj.engine.color.Palette
-import com.marsraver.wleddj.engine.color.Palettes
 import com.marsraver.wleddj.engine.color.RgbColor
 import kotlin.math.roundToInt
 
@@ -37,12 +36,12 @@ abstract class BasePixelAnimation : Animation {
     // Backing fields
     private var _primaryColor: Int = getDefaultPrimaryColor()
     private var _secondaryColor: Int = Color.BLACK
-    private var _palette: Palette = Palettes.get(getDefaultPaletteName()) ?: Palettes.getDefault()
+    private var _palette: Palette = Palette.fromName(getDefaultPaletteName())
 
     /**
      * Override to specify a different default palette for this animation.
      */
-    open fun getDefaultPaletteName(): String = Palettes.DEFAULT_PALETTE_NAME
+    open fun getDefaultPaletteName(): String = Palette.DEFAULT.name
 
     /**
      * Override to specify a different default primary color.

@@ -6,7 +6,6 @@ import android.graphics.Paint
 import android.graphics.Path
 import com.marsraver.wleddj.engine.Animation
 import com.marsraver.wleddj.engine.color.Palette
-import com.marsraver.wleddj.engine.color.Palettes
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
@@ -17,7 +16,7 @@ import kotlin.random.Random
  */
 class BlobsAnimation : Animation {
 
-    private var _palette: Palette = Palettes.get("Rainbow") ?: Palettes.getDefault()
+    private var _palette: Palette = Palette.fromName("Rainbow") ?: Palette.DEFAULT
     override var currentPalette: Palette?
         get() = _palette
         set(value) { if (value != null) _palette = value }
