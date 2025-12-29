@@ -21,8 +21,10 @@ class RenderEngine(
 
 
     private val lock = Any()
+    @Volatile
     private var isRunning = false
     private val scope = CoroutineScope(Dispatchers.Default + Job())
+    private var renderJob: Job? = null
     
     // Render Bounds (World Space) - Auto-expanded to fit devices
     var renderBounds = RectF(0f, 0f, 1000f, 1000f)
@@ -123,17 +125,24 @@ class RenderEngine(
         }
     }
     
+    
+    // ...
+    
     fun start() {
         if (isRunning) return
         isRunning = true
-        scope.launch {
+        
+        // Ensure no previous job is running (cancel it if it is)
+        renderJob?.cancel()
+        
+        renderJob = scope.launch {
             while (isRunning && isActive) {
-                val startTime = System.currentTimeMillis()
+                // ... (loop content remains valid as is)
+                val startTime = System.nanoTime()
                 
                 renderFrame()
                 mapAndSend()
                 
-                // Be careful extracting bitmap under lock vs emitting outside
                 val frame = synchronized(lock) {
                      PreviewFrame(
                         bufferBitmap.copy(Bitmap.Config.ARGB_8888, false),
@@ -143,9 +152,8 @@ class RenderEngine(
                 }
                 _previewFrame.emit(frame)
 
-                // Target 30 FPS (~33ms)
-                val elapsed = System.currentTimeMillis() - startTime
-                val wait = 33 - elapsed
+                val elapsedMs = (System.nanoTime() - startTime) / 1_000_000
+                val wait = 33 - elapsedMs
                 if (wait > 0) delay(wait)
             }
         }
@@ -153,6 +161,16 @@ class RenderEngine(
 
     fun stop() {
         isRunning = false
+        renderJob?.cancel()
+        renderJob = null
+    }
+    
+    fun destroy() {
+        isRunning = false
+        renderJob?.cancel()
+        renderJob = null
+        clearAnimations()
+        scope.cancel()
     }
 
     private fun renderFrame() {

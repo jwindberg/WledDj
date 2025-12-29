@@ -55,8 +55,19 @@ class PlayerViewModel(
     }
     
     // Called by UI when screen size is known
+    private var lastViewW = 0f
+    private var lastViewH = 0f
+
     // Called by UI when screen size is known
     fun onViewportSizeChanged(viewW: Float, viewH: Float) {
+        // Debounce/Ignore duplicate calls
+        if (kotlin.math.abs(viewW - lastViewW) < 1f && kotlin.math.abs(viewH - lastViewH) < 1f) {
+            return
+        }
+        lastViewW = viewW
+        lastViewH = viewH
+        android.util.Log.d("WledDj", "Viewport changed: $viewW x $viewH")
+
         val orig = _originalInstallation ?: return
         
         // DISABLE AUTOMATIC SHIFTING/RESIZING
@@ -68,7 +79,7 @@ class PlayerViewModel(
              // Rebuild logic
         }
         
-         _engine.value?.stop()
+         _engine.value?.destroy() // Ensure complete teardown
          _installation.value = orig
          val newEngine = RenderEngine(orig)
          
@@ -396,7 +407,7 @@ class PlayerViewModel(
 
     override fun onCleared() {
         super.onCleared()
-        _engine.value?.stop()
+        _engine.value?.destroy()
         stopMonitoring()
     }
 

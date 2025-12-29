@@ -77,6 +77,7 @@ class AquariumAnimation : Animation {
     private val fishPath = Path()
 
     // Time for animation
+    private var lastFrameTime = 0L
     private var time = 0f
 
     override fun draw(canvas: Canvas, width: Float, height: Float) {
@@ -104,16 +105,26 @@ class AquariumAnimation : Animation {
         // 2. Clear Background (Transparent)
         bufCanvas.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
         
-        time += 0.05f
+        // Calculate Delta Time (Seconds)
+        val now = System.nanoTime()
+        if (lastFrameTime == 0L) lastFrameTime = now
+        val dt = (now - lastFrameTime) / 1_000_000_000f
+        lastFrameTime = now
+        
+        // Avoid huge jumps if paused
+        val cleanDt = if (dt > 0.1f) 0.033f else dt
+
+        // Base speed was 0.05 per frame @ 30fps = 1.5 per second
+        time += cleanDt * 1.5f 
         
         // 3. Draw Plants (Back Layer)
         drawPlants(bufCanvas, width, height)
         
         // 4. Draw Fish
-        updateAndDrawFish(bufCanvas, width, height)
+        updateAndDrawFish(bufCanvas, width, height, cleanDt)
         
         // 5. Draw Bubbles
-        updateAndDrawBubbles(bufCanvas, width, height)
+        updateAndDrawBubbles(bufCanvas, width, height, cleanDt)
         
         // 6. Blit
         canvas.drawBitmap(buffer!!, 0f, 0f, null)
@@ -175,10 +186,15 @@ class AquariumAnimation : Animation {
         }
     }
     
-    private fun updateAndDrawFish(c: Canvas, w: Float, h: Float) {
+    private fun updateAndDrawFish(c: Canvas, w: Float, h: Float, dt: Float) {
+        // Assume target 30fps for conversion of old units
+        // Old speed: vx [pixels/frame]
+        // New speed: vx * 30 [pixels/second] * dt [seconds]
+        val speedScale = 30f * dt
+
         for (f in fishList) {
-            f.x += f.vx
-            f.tailPhase += 0.5f
+            f.x += f.vx * speedScale
+            f.tailPhase += 0.5f * speedScale // Tail wag speed
             
             // Wrap
             if (f.vx > 0 && f.x > w + 50) f.x = -50f
@@ -215,9 +231,17 @@ class AquariumAnimation : Animation {
         }
     }
     
-    private fun updateAndDrawBubbles(c: Canvas, w: Float, h: Float) {
-        // Spawn chance
-        if (Random.nextFloat() < 0.1f) { // 10% chance per frame
+    private fun updateAndDrawBubbles(c: Canvas, w: Float, h: Float, dt: Float) {
+        val speedScale = 30f * dt
+        
+        // Spawn chance logic:
+        // We want ~10% probability per 33ms frame.
+        // Rate R = 3.0 spawns/frame-interval (roughly).
+        // Let's use simpler logic: spawn chance scales with dt.
+        // If dt=0.033, chance=0.1.
+        // chance = 3.0 * dt.
+        
+        if (Random.nextFloat() < (3.0f * dt)) { 
             val b = Bubble()
             b.x = Random.nextFloat() * w
             b.y = h + 10f
@@ -229,9 +253,9 @@ class AquariumAnimation : Animation {
         val iter = bubbles.iterator()
         while (iter.hasNext()) {
             val b = iter.next()
-            b.y += b.vy
+            b.y += b.vy * speedScale
             // Wiggle
-            b.x += sin(b.y * 0.1f) * 0.5f
+            b.x += sin(b.y * 0.1f) * 0.5f * speedScale 
             
             if (b.y < -10) {
                 iter.remove()
