@@ -66,6 +66,7 @@ object AnimationFactory {
             "Sonar" -> SonarAnimation()
             "ScrollingText" -> ScrollingTextAnimation()
             "Aquarium" -> AquariumAnimation()
+            "FractalZoom" -> FractalZoomAnimation()
             else -> BouncingBallAnimation(dropX, dropY, 30f)
         }
     }
@@ -76,6 +77,7 @@ object AnimationFactory {
             is BouncingBallAnimation -> "Ball"
             is FireworksAnimation -> "Fireworks"
             is InfiniteTunnelAnimation -> "InfiniteTunnel"
+            is FractalZoomAnimation -> "FractalZoom"
             is SonarAnimation -> "Sonar"
             is ScrollingTextAnimation -> "ScrollingText"
             is AquariumAnimation -> "Aquarium"
@@ -159,7 +161,7 @@ object AnimationFactory {
             "SunRadiation", "WashingMachine", "RotoZoomer", "Tetrix", "Hiphotic",
             "BlackHole", "FunkyPlank", "DriftRose", "Matripix", "WavingCell", "Frizzles",
             "PixelWave", "FreqMatrix", "Lake", "DnaSpiral", "Globe", "Ball", 
-            "Spectrogram", "InfiniteTunnel", "Sonar", "ScrollingText", "Fireworks",
+            "Spectrogram", "InfiniteTunnel", "FractalZoom", "Sonar", "ScrollingText", "Fireworks",
             "Aurora Borealis", "Blurz", "GEQ", "MusicBall", "DeathStarRun",
             "Flashlight", "Fireflies", "TronRecognizer", "SpectrumTree", "Soap"
         ).sorted().map { name ->
