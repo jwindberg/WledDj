@@ -4,9 +4,9 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.RectF
-import com.marsraver.wleddj.data.model.AnimationRegion
-import com.marsraver.wleddj.data.model.Installation
-import com.marsraver.wleddj.data.model.WledDevice
+import com.marsraver.wleddj.model.AnimationRegion
+import com.marsraver.wleddj.model.Installation
+import com.marsraver.wleddj.model.WledDevice
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow

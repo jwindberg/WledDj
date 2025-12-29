@@ -1,4 +1,4 @@
-package com.marsraver.wleddj.data.model
+package com.marsraver.wleddj.model
 
 import kotlinx.serialization.Serializable
 import java.util.UUID

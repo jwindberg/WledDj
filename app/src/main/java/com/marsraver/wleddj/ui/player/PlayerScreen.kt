@@ -23,7 +23,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.*
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.marsraver.wleddj.data.repository.FileInstallationRepository
+import com.marsraver.wleddj.repository.FileInstallationRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.foundation.Canvas
 import kotlin.math.roundToInt
@@ -59,7 +59,7 @@ fun PlayerScreen(
     }
 
     val context = LocalContext.current
-    val repository = remember { com.marsraver.wleddj.data.repository.RepositoryProvider.getRepository(context) }
+    val repository = remember { com.marsraver.wleddj.repository.RepositoryProvider.getRepository(context) }
     val viewModel: PlayerViewModel = viewModel(
         factory = PlayerViewModel.Factory(context.applicationContext as android.app.Application, installationId, repository)
     )
@@ -386,7 +386,7 @@ fun AnimationSelectionSheet(
                     "TronRecognizer",
                     "SpectrumTree",
                     "Soap",
-                    "Fireworks"
+
                 ).sorted()
                 
                 val audioReactiveConfigs = setOf(

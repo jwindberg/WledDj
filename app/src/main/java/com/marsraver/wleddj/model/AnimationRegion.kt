@@ -1,4 +1,4 @@
-package com.marsraver.wleddj.data.model
+package com.marsraver.wleddj.model
 
 import android.graphics.RectF
 import com.marsraver.wleddj.engine.Animation

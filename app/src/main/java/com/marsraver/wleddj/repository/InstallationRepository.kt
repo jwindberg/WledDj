@@ -1,7 +1,7 @@
-package com.marsraver.wleddj.data.repository
+package com.marsraver.wleddj.repository
 
 import android.content.Context
-import com.marsraver.wleddj.data.model.Installation
+import com.marsraver.wleddj.model.Installation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -25,6 +25,17 @@ class TronRecognizerAnimation(private val context: Context) : Animation, Corouti
         get() = Dispatchers.Default + job
 
     // Recognizer 3D model data
+    private companion object {
+        const val RECOGNIZER_COLOR_HEX = 0xFF00FFFF.toInt() // Cyan
+        const val OUTLINE_COLOR_VAL = android.graphics.Color.WHITE
+        const val STROKE_WIDTH = 3f
+        const val TEXT_SIZE = 60f
+        const val CAMERA_DISTANCE = 400f
+        const val MODEL_SIZE = 600f
+        const val FRICTION = 0.98f
+        const val MOMENTUM_SCALE = 0.15f
+    }
+
     private data class Vertex3D(val x: Float, val y: Float, val z: Float)
     private data class Edge(val v1: Int, val v2: Int)
     private data class Face(val vertexIndices: List<Int>)
@@ -36,9 +47,9 @@ class TronRecognizerAnimation(private val context: Context) : Animation, Corouti
 
     // Tron colors
     // Cyan: 0, 255, 255
-    private val recognizerColor = Color.rgb(0, 255, 255)
+    private val recognizerColor = RECOGNIZER_COLOR_HEX
     // White outline
-    private val outlineColor = Color.WHITE
+    private val outlineColor = OUTLINE_COLOR_VAL
 
     private val fillPaint = Paint().apply { 
         style = Paint.Style.FILL 
@@ -48,7 +59,7 @@ class TronRecognizerAnimation(private val context: Context) : Animation, Corouti
     private val strokePaint = Paint().apply { 
         style = Paint.Style.STROKE 
         color = outlineColor
-        strokeWidth = 3f
+        strokeWidth = STROKE_WIDTH
         isAntiAlias = true
         strokeJoin = Paint.Join.ROUND
         strokeCap = Paint.Cap.ROUND
@@ -65,7 +76,7 @@ class TronRecognizerAnimation(private val context: Context) : Animation, Corouti
     // Helper for loading paint
     private val textPaint = Paint().apply {
         color = Color.CYAN
-        textSize = 60f
+        textSize = TEXT_SIZE
         textAlign = Paint.Align.CENTER
         isAntiAlias = true
     }
@@ -142,8 +153,8 @@ class TronRecognizerAnimation(private val context: Context) : Animation, Corouti
                 // Apply Fling Momentum
                 // Use smoothed cumulative delta for more consistent fling
                 // Inverted for consistency
-                velRotY = -deltaX * 0.15f 
-                velRotX = -deltaY * 0.15f 
+                velRotY = -deltaX * MOMENTUM_SCALE 
+                velRotX = -deltaY * MOMENTUM_SCALE 
             }
 
             if (!isTouching) {
@@ -152,8 +163,8 @@ class TronRecognizerAnimation(private val context: Context) : Animation, Corouti
                 rotY += velRotY * dt
                 
                 // Friction
-                velRotX *= 0.98f
-                velRotY *= 0.98f
+                velRotX *= FRICTION
+                velRotY *= FRICTION
             } else {
                 // Decay delta if holding still
                 if (currentTime - lastTouchTime > 50) {
@@ -329,7 +340,7 @@ class TronRecognizerAnimation(private val context: Context) : Animation, Corouti
             }
 
             val maxDim = max(maxX - minX, max(maxY - minY, maxZ - minZ))
-            val targetSize = 600f
+            val targetSize = MODEL_SIZE
             val scale = if (maxDim > 0.001f) targetSize / maxDim else 1.0f
 
             val centerX = (minX + maxX) / 2f
@@ -404,7 +415,7 @@ class TronRecognizerAnimation(private val context: Context) : Animation, Corouti
             val worldZ = z2 + centerZ
 
             // Perspective
-            val cameraDistance = 400f
+            val cameraDistance = CAMERA_DISTANCE
             val depth = -worldZ 
             val perspective = cameraDistance / (cameraDistance + depth)
 

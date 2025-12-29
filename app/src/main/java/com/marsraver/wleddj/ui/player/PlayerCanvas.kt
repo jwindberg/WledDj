@@ -13,8 +13,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlin.math.roundToInt
-import com.marsraver.wleddj.data.model.AnimationRegion
-import com.marsraver.wleddj.data.model.Installation
+import com.marsraver.wleddj.model.AnimationRegion
+import com.marsraver.wleddj.model.Installation
 import com.marsraver.wleddj.engine.RenderEngine
 
 class CanvasGeometry {

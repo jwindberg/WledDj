@@ -12,7 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.marsraver.wleddj.data.model.Installation
+import com.marsraver.wleddj.model.Installation
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

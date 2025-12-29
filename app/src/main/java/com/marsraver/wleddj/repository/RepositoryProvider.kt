@@ -1,4 +1,4 @@
-package com.marsraver.wleddj.data.repository
+package com.marsraver.wleddj.repository
 
 import android.content.Context
 

@@ -4,9 +4,9 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.marsraver.wleddj.data.model.Installation
-import com.marsraver.wleddj.data.model.WledDevice
-import com.marsraver.wleddj.data.repository.InstallationRepository
+import com.marsraver.wleddj.model.Installation
+import com.marsraver.wleddj.model.WledDevice
+import com.marsraver.wleddj.repository.InstallationRepository
 import com.marsraver.wleddj.wled.WledDiscoveryClient
 import com.marsraver.wleddj.wled.WledHttpClient
 import com.marsraver.wleddj.wled.model.DiscoveredDevice

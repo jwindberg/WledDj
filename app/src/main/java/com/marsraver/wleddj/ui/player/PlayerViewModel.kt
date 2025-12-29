@@ -6,7 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.marsraver.wleddj.data.repository.InstallationRepository
+import com.marsraver.wleddj.repository.InstallationRepository
 import com.marsraver.wleddj.engine.RenderEngine
 import com.marsraver.wleddj.animations.BouncingBallAnimation
 import com.marsraver.wleddj.animations.*
@@ -30,14 +30,14 @@ class PlayerViewModel(
     private val _engine = MutableStateFlow<RenderEngine?>(null)
     val engine = _engine.asStateFlow()
     
-    private val _installation = MutableStateFlow<com.marsraver.wleddj.data.model.Installation?>(null)
+    private val _installation = MutableStateFlow<com.marsraver.wleddj.model.Installation?>(null)
     val installation = _installation.asStateFlow()
 
     init {
         loadInstallation()
     }
 
-    private var _originalInstallation: com.marsraver.wleddj.data.model.Installation? = null
+    private var _originalInstallation: com.marsraver.wleddj.model.Installation? = null
     
     private val httpClient = com.marsraver.wleddj.wled.WledHttpClient()
 
@@ -89,7 +89,7 @@ class PlayerViewModel(
                  val pal = Palettes.get(saved.paletteName)
                  if (pal != null) anim.currentPalette = pal
              }
-             val region = com.marsraver.wleddj.data.model.AnimationRegion(
+             val region = com.marsraver.wleddj.model.AnimationRegion(
                  id = saved.id,
                  rect = android.graphics.RectF(saved.rectLeft, saved.rectTop, saved.rectRight, saved.rectBottom),
                  rotation = saved.rotation,
@@ -116,7 +116,7 @@ class PlayerViewModel(
              if (saved.text != null && anim.supportsText()) {
                  anim.setText(saved.text)
              }
-             val region = com.marsraver.wleddj.data.model.AnimationRegion(
+             val region = com.marsraver.wleddj.model.AnimationRegion(
                  id = saved.id,
                  rect = android.graphics.RectF(saved.rectLeft, saved.rectTop, saved.rectRight, saved.rectBottom),
                  rotation = saved.rotation,
@@ -131,7 +131,7 @@ class PlayerViewModel(
     }
 
     // Regions State
-    private val _regions = MutableStateFlow<List<com.marsraver.wleddj.data.model.AnimationRegion>>(emptyList())
+    private val _regions = MutableStateFlow<List<com.marsraver.wleddj.model.AnimationRegion>>(emptyList())
     val regions = _regions.asStateFlow()
 
     fun refreshRegions() {
@@ -148,7 +148,7 @@ class PlayerViewModel(
              android.graphics.RectF(100f, 100f, 100f + regionSize, 100f + regionSize)
         } ?: android.graphics.RectF(0f, 0f, 300f, 300f)
         
-        val region = com.marsraver.wleddj.data.model.AnimationRegion(
+        val region = com.marsraver.wleddj.model.AnimationRegion(
             rect = regionSize.let { s -> android.graphics.RectF(100f, 100f, 100f+s, 100f+s) }, // explicit
             animation = BouncingBallAnimation(50f, 50f, 30f)
         )
@@ -412,7 +412,7 @@ class PlayerViewModel(
                 else -> "Ball"
             }
             
-            com.marsraver.wleddj.data.model.SavedAnimation(
+            com.marsraver.wleddj.model.SavedAnimation(
                 id = region.id,
                 type = type,
                 rectLeft = region.rect.left,
@@ -463,7 +463,7 @@ class PlayerViewModel(
         val cx = if (isFullscreen) installW / 2f else dropX
         val cy = if (isFullscreen) installH / 2f else dropY
         
-        val region = com.marsraver.wleddj.data.model.AnimationRegion(
+        val region = com.marsraver.wleddj.model.AnimationRegion(
             rect = android.graphics.RectF(cx - size/2, cy - size/2, cx + size/2, cy + size/2),
             animation = animation
         )
@@ -479,7 +479,8 @@ class PlayerViewModel(
     }
 
     private fun isFullscreenEffect(type: String): Boolean {
-        return type == "Flashlight" || type == "TronRecognizer"
+        // Only TronRecognizer remains fullscreen by default for now
+        return type == "TronRecognizer"
     }
     
     private fun minCode(a: Float, b: Float): Float = if (a < b) a else b

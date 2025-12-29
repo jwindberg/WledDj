@@ -31,8 +31,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.marsraver.wleddj.data.model.WledDevice
-import com.marsraver.wleddj.data.repository.FileInstallationRepository
+import com.marsraver.wleddj.model.Installation
+import com.marsraver.wleddj.model.WledDevice
+import com.marsraver.wleddj.repository.FileInstallationRepository
 import com.marsraver.wleddj.wled.model.DiscoveredDevice
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -50,20 +51,23 @@ fun LayoutEditorScreen(
     }
 
     val context = LocalContext.current
-    val repository = com.marsraver.wleddj.data.repository.RepositoryProvider.getRepository(context)
+    val repository = com.marsraver.wleddj.repository.RepositoryProvider.getRepository(context)
     val viewModel: EditorViewModel = viewModel(
         factory = EditorViewModel.Factory(installationId, repository, context)
     )
 
-    val installation by viewModel.installation.collectAsState()
+    val installationState by viewModel.installation.collectAsState()
     val discoveredDevices by viewModel.discoveredDevices.collectAsState()
+    
+    val installation: com.marsraver.wleddj.model.Installation = installationState ?: return
+
     var showAddSheet by remember { mutableStateOf(false) }
     var showRebootDialog by remember { mutableStateOf(false) }
     var selectedDeviceIp: String? by remember { mutableStateOf(null) }
 
     // Derive the selected device object from the current installation
     val selectedDevice = remember(installation, selectedDeviceIp) {
-        installation?.devices?.find { it.ip == selectedDeviceIp }
+        installation.devices.find { it.ip == selectedDeviceIp }
     }
 
     // Intercept System Back to Save
@@ -177,7 +181,7 @@ fun LayoutEditorScreen(
                         LazyColumn {
                             items(discoveredDevices) { device ->
                                 // Filter out already added devices visually
-                                val isAdded = installation?.devices?.any { it.ip == device.ip } == true
+                                val isAdded = installation.devices.any { it.ip == device.ip } == true
                                 if (!isAdded) {
                                     DiscoveredDeviceItem(device) {
                                         viewModel.addDevice(device)
@@ -213,7 +217,7 @@ fun LayoutEditorScreen(
 
 @Composable
 fun LayoutCanvas(
-    installation: com.marsraver.wleddj.data.model.Installation,
+    installation: com.marsraver.wleddj.model.Installation,
     selectedDevice: WledDevice?,
     onSelectDevice: (WledDevice?) -> Unit,
     onMoveDevice: (WledDevice, Float, Float, Float, Float, Float) -> Unit,
@@ -268,7 +272,7 @@ fun LayoutCanvas(
                         
                         // 1. HIT TEST
                         val virtualPoint = screenToVirtual(down.position.x, down.position.y)
-                        val installDevices = currentInstallationState.value.devices
+                        val installDevices: List<WledDevice> = installation.devices
                         val hitDevice = installDevices.find { device ->
                              virtualPoint.x >= device.x && virtualPoint.x <= device.x + device.width &&
                              virtualPoint.y >= device.y && virtualPoint.y <= device.y + device.height

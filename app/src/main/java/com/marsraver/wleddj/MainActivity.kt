@@ -13,7 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.marsraver.wleddj.data.repository.FileInstallationRepository
+import com.marsraver.wleddj.repository.FileInstallationRepository
 import com.marsraver.wleddj.ui.editor.LayoutEditorScreen
 import com.marsraver.wleddj.ui.home.HomeScreen
 import com.marsraver.wleddj.ui.player.PlayerScreen
@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
             requestPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
         }
 
-        val repository = com.marsraver.wleddj.data.repository.RepositoryProvider.getRepository(applicationContext)
+        val repository = com.marsraver.wleddj.repository.RepositoryProvider.getRepository(applicationContext)
 
         setContent {
             WledDjTheme {
