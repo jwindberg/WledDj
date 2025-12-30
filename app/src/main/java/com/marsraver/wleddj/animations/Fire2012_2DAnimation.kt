@@ -12,13 +12,12 @@ import com.marsraver.wleddj.engine.color.Palette
 
 class Fire2012_2DAnimation : BasePixelAnimation() {
     
-    override fun supportsPalette(): Boolean = true
+    override fun getDefaultPalette(): Palette = Palette.HEAT
 
     private lateinit var heat: IntArray // width * height
     
     override fun onInit() {
         heat = IntArray(width * height)
-        currentPalette = Palette.fromName("Heat")
     }
     
     override fun update(now: Long): Boolean {

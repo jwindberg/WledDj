@@ -205,8 +205,13 @@ fun InteractivePlayerCanvas(
                                                 val pdy = panChange.y / currentScale
                                                 
                                                 if (mode == "RESIZE") {
-                                                    newRect.right += pdx
-                                                    newRect.bottom += pdy
+                                                    // Prevent flipping/inversion by enforcing min size
+                                                    val minSize = 50f
+                                                    val targetRight = newRect.right + pdx
+                                                    val targetBottom = newRect.bottom + pdy
+                                                    
+                                                    newRect.right = if (targetRight < newRect.left + minSize) newRect.left + minSize else targetRight
+                                                    newRect.bottom = if (targetBottom < newRect.top + minSize) newRect.top + minSize else targetBottom
                                                 } else {
                                                     newRect.offset(pdx, pdy)
                                                 }

@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import com.marsraver.wleddj.engine.Animation
+import com.marsraver.wleddj.engine.color.Palette
 import com.marsraver.wleddj.engine.audio.BeatDetector
 import com.marsraver.wleddj.engine.audio.FftMeter
 import kotlin.math.cos
@@ -21,7 +22,7 @@ import kotlin.random.Random
 class SpectrumTreeAnimation : BasePixelAnimation() {
 
     override fun supportsPalette(): Boolean = true
-    override fun getDefaultPaletteName(): String = "Christmas"
+    override fun getDefaultPalette(): Palette = Palette.CHRISTMAS
 
     private val fftMeter = FftMeter(16) // 16 bands for ornaments
     

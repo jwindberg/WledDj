@@ -95,8 +95,8 @@ class PlayerViewModel(
              if (saved.secondaryColor != null && anim.supportsSecondaryColor()) {
                  anim.secondaryColor = saved.secondaryColor
              }
-             if (saved.paletteName != null && anim.supportsPalette()) {
-                 anim.currentPalette = saved.paletteName
+             if (saved.palette != null && anim.supportsPalette()) {
+                 anim.currentPalette = saved.palette
              }
              val region = com.marsraver.wleddj.model.AnimationRegion(
                  id = saved.id,
@@ -211,7 +211,7 @@ class PlayerViewModel(
         val supportsText: Boolean = false,
         val primaryColor: Int = android.graphics.Color.WHITE,
         val secondaryColor: Int = android.graphics.Color.BLACK,
-        val currentPalette: Palette = Palette.DEFAULT,
+        val currentPalette: Palette = Palette.STANDARD,
         val currentText: String = ""
     )
     
@@ -223,7 +223,7 @@ class PlayerViewModel(
         val region = if (id != null) _engine.value?.getRegions()?.find { it.id == id } else null
         val anim = region?.animation
         
-        val pal = anim?.currentPalette ?: Palette.DEFAULT
+        val pal = anim?.currentPalette ?: Palette.STANDARD
 
         if (anim != null) {
             _animationControlsState.value = AnimationControlsState(

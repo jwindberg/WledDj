@@ -1,6 +1,7 @@
 package com.marsraver.wleddj.model
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 import java.util.UUID
 import com.marsraver.wleddj.engine.color.Palette
 
@@ -32,5 +33,6 @@ data class SavedAnimation(
     val text: String? = null,
     val primaryColor: Int? = null,
     val secondaryColor: Int? = null,
-    val paletteName: Palette? = null
+    @SerialName("paletteName") // Keep JSON compat
+    val palette: Palette? = null
 )

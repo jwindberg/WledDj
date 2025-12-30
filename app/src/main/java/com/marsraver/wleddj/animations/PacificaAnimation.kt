@@ -13,6 +13,8 @@ class PacificaAnimation : BasePixelAnimation() {
 
     override fun supportsPalette(): Boolean = true
 
+    override fun getDefaultPalette(): Palette = Palette.OCEAN
+
     private var startTimeNs: Long = 0L
     private var sCIStart1: Int = 0
     private var sCIStart2: Int = 0
@@ -21,7 +23,6 @@ class PacificaAnimation : BasePixelAnimation() {
 
     override fun onInit() {
         startTimeNs = System.nanoTime()
-        currentPalette = Palette.fromName("Ocean")
     }
 
     override fun update(now: Long): Boolean {

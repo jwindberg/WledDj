@@ -14,7 +14,7 @@ import com.marsraver.wleddj.engine.color.Palette
  */
 class FunkyPlankAnimation : Animation {
 
-    private var _palette: Palette = Palette.fromName("Rainbow") ?: Palette.DEFAULT
+    private var _palette: Palette = Palette.RAINBOW
     override var currentPalette: Palette?
         get() = _palette
         set(value) { if (value != null) _palette = value }

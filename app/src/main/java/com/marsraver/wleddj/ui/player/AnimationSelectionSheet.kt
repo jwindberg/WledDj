@@ -17,35 +17,26 @@ fun AnimationSelectionSheet(
     modifier: Modifier = Modifier,
     onSelect: (AnimationType) -> Unit
 ) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .fillMaxHeight(0.4f), 
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 8.dp,
-        shape = MaterialTheme.shapes.large.copy(bottomStart = androidx.compose.foundation.shape.CornerSize(0.dp), bottomEnd = androidx.compose.foundation.shape.CornerSize(0.dp))
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = stringResource(R.string.add_animation),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+    Column(modifier = modifier.padding(16.dp)) {
+        Text(
+            text = stringResource(R.string.add_animation),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+        
+        androidx.compose.foundation.lazy.LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(bottom = 16.dp)
+        ) {
+            val animations = AnimationFactory.getAvailableAnimations()
             
-            androidx.compose.foundation.lazy.LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(bottom = 16.dp)
-            ) {
-                val animations = AnimationFactory.getAvailableAnimations()
-                
-                items(animations.size) { index ->
-                    val anim = animations[index]
-                    AnimationListItem(
-                        type = anim.name, // Uses displayName property from metadata
-                        isAudioReactive = anim.isAudioReactive,
-                        onClick = { onSelect(anim.type) }
-                    )
-                }
+            items(animations.size) { index ->
+                val anim = animations[index]
+                AnimationListItem(
+                    type = anim.name, // Uses displayName property from metadata
+                    isAudioReactive = anim.isAudioReactive,
+                    onClick = { onSelect(anim.type) }
+                )
             }
         }
     }

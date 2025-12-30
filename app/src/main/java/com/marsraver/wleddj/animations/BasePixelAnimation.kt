@@ -36,12 +36,12 @@ abstract class BasePixelAnimation : Animation {
     // Backing fields
     private var _primaryColor: Int = getDefaultPrimaryColor()
     private var _secondaryColor: Int = Color.BLACK
-    private var _palette: Palette = Palette.fromName(getDefaultPaletteName())
+    private var _palette: Palette = Palette.STANDARD
 
     /**
      * Override to specify a different default palette for this animation.
      */
-    open fun getDefaultPaletteName(): String = Palette.DEFAULT.name
+    open fun getDefaultPalette(): Palette = Palette.STANDARD
 
     /**
      * Override to specify a different default primary color.

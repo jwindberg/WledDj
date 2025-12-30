@@ -18,7 +18,7 @@ import kotlin.math.sin
  */
 class PolarLightsAnimation : Animation {
 
-    private var _palette: Palette = Palette.fromName("Forest") ?: Palette.DEFAULT
+    private var _palette: Palette = Palette.FOREST
     override var currentPalette: Palette?
         get() = _palette
         set(value) { if (value != null) _palette = value }

@@ -112,7 +112,7 @@ fun AnimationControlsBar(
 
     if (showPalettePicker) {
         PalettePickerDialog(
-            palettes = Palette.entries,
+            palettes = Palette.entries.filter { it != Palette.STANDARD },
             onPaletteSelected = { 
                 onPaletteChange(it)
                 showPalettePicker = false 

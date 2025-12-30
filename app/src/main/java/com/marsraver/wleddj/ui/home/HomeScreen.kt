@@ -30,7 +30,10 @@ fun HomeScreen(
             CenterAlignedTopAppBar(title = { Text("Installations") })
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showDialog = true }) {
+            FloatingActionButton(
+                onClick = { showDialog = true },
+                modifier = Modifier.navigationBarsPadding() // Prevent nav bar overlap
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Create Installation")
             }
         }

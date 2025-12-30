@@ -15,9 +15,10 @@ class Noise2DAnimation : BasePixelAnimation() {
 
     private var startTimeNs: Long = 0L
 
+    override fun getDefaultPalette(): Palette = Palette.RAINBOW
+
     override fun onInit() {
-        startTimeNs = System.nanoTime()
-        currentPalette = Palette.fromName("Rainbow")
+        // Init noise array
     }
 
     override fun update(now: Long): Boolean {

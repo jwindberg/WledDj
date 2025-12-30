@@ -16,7 +16,7 @@ import kotlin.math.sin
  */
 class WavingCellAnimation : Animation {
 
-    private var _palette: Palette = Palette.fromName("Heat") ?: Palette.fromName("Rainbow") ?: Palette.DEFAULT
+    private var _palette: Palette = Palette.HEAT
     override var currentPalette: Palette?
         get() = _palette
         set(value) { if (value != null) _palette = value }

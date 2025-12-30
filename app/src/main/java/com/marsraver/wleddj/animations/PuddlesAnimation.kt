@@ -14,14 +14,14 @@ import kotlin.random.Random
  */
 class PuddlesAnimation : Animation {
 
-    private var _palette: Palette = Palette.fromName(getDefaultPaletteName()) ?: Palette.DEFAULT
+    private var _palette: Palette = Palette.RAINBOW
     override var currentPalette: Palette?
         get() = _palette
         set(value) { if (value != null) _palette = value }
 
     override fun supportsPalette(): Boolean = true
 
-    fun getDefaultPaletteName(): String = "Rainbow"
+
 
     // State
     private data class Ripple(

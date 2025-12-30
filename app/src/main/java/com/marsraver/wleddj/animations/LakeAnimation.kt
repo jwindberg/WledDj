@@ -16,11 +16,12 @@ class LakeAnimation : BasePixelAnimation() {
 
     override fun supportsPalette(): Boolean = true
 
+    override fun getDefaultPalette(): Palette = Palette.OCEAN
+
     private var startTimeNs: Long = 0L
 
     override fun onInit() {
         startTimeNs = System.nanoTime()
-        currentPalette = Palette.fromName("Ocean")
     }
 
     override fun update(now: Long): Boolean {

@@ -143,7 +143,8 @@ fun LayoutEditorScreen(
         floatingActionButton = {
             Row(
                 verticalAlignment = Alignment.CenterVertically, 
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.navigationBarsPadding() // Prevent nav bar overlap in landscape
             ) {
                 FloatingActionButton(
                     onClick = { showRebootDialog = true },
@@ -196,6 +197,7 @@ fun LayoutEditorScreen(
                                 if (!isAdded) {
                                     DiscoveredDeviceItem(device) {
                                         viewModel.addDevice(device)
+                                        selectedDeviceIp = device.ip // Auto-select the added device
                                         showAddSheet = false
                                     }
                                 }

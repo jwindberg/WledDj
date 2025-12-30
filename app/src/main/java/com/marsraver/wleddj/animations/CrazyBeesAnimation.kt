@@ -16,7 +16,7 @@ import kotlin.random.Random
 class CrazyBeesAnimation : Animation {
 
     // --- Animation Interface ---
-    private var _palette: Palette = Palette.DEFAULT
+    private var _palette: Palette = Palette.STANDARD
     override var currentPalette: Palette?
         get() = _palette
         set(value) { if (value != null) _palette = value }

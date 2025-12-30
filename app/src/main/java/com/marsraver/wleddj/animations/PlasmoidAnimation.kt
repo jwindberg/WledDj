@@ -21,12 +21,12 @@ class PlasmoidAnimation : BasePixelAnimation() {
     private var loudnessMeter: LoudnessMeter? = null
     private var startTimeNs: Long = 0L
 
+    override fun getDefaultPalette(): Palette = Palette.RAINBOW
+    
     override fun onInit() {
         thisPhase = 0
         thatPhase = 0
-        startTimeNs = System.nanoTime()
         loudnessMeter = LoudnessMeter()
-        currentPalette = Palette.fromName("Rainbow")
     }
 
     override fun update(now: Long): Boolean {

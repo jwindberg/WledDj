@@ -18,10 +18,11 @@ class DistortionWavesAnimation : BasePixelAnimation() {
     private var alt: Boolean = false
     private var paletteMode: Int = 1 // default to 1 (HSV/Palette)
     private var startTimeMs: Long = 0
+    
+    override fun getDefaultPalette(): Palette = Palette.RAINBOW
 
     override fun onInit() {
         startTimeMs = System.currentTimeMillis()
-        currentPalette = Palette.fromName("Rainbow")
     }
 
     override fun update(now: Long): Boolean {

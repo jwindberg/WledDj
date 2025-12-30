@@ -51,7 +51,7 @@ fun PalettePickerDialog(
 
 @Composable
 fun PaletteTab(onColorPick: (Int) -> Unit) {
-    var selectedPalette by remember { mutableStateOf(Palette.DEFAULT) }
+    var selectedPalette by remember { mutableStateOf(Palette.STANDARD) }
     var expanded by remember { mutableStateOf(false) }
     val colors = selectedPalette.colors
 
@@ -69,7 +69,7 @@ fun PaletteTab(onColorPick: (Int) -> Unit) {
                 onDismissRequest = { expanded = false },
                 modifier = Modifier.heightIn(max = 300.dp) // Limit height
             ) {
-                Palette.entries.forEach { pal ->
+                Palette.entries.filter { it != Palette.STANDARD }.forEach { pal ->
                     DropdownMenuItem(
                         text = { Text(pal.displayName) },
                         onClick = {

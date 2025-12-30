@@ -141,7 +141,7 @@ object AnimationFactory {
         }
         
         // Palette is now an Enum, so we can directly access it from the animation
-        val paletteName = region.animation.currentPalette
+        val palette = region.animation.currentPalette
 
         return SavedAnimation(
             id = region.id,
@@ -154,7 +154,7 @@ object AnimationFactory {
             text = if (region.animation.supportsText()) region.animation.getText() else null,
             primaryColor = if (region.animation.supportsPrimaryColor()) region.animation.primaryColor else null,
             secondaryColor = if (region.animation.supportsSecondaryColor()) region.animation.secondaryColor else null,
-            paletteName = paletteName
+            palette = palette
         )
     }
 

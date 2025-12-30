@@ -29,6 +29,7 @@ fun LayoutCanvas(
     val currentOnMoveDeviceState = rememberUpdatedState(onMoveDevice)
     val currentOnUpdateViewportState = rememberUpdatedState(onUpdateViewport)
     val currentOnInteractionEndState = rememberUpdatedState(onInteractionEnd)
+    val updatedInstallation = rememberUpdatedState(installation)
 
     // Camera State (Virtual Coordinates)
     // Default to Center if null (1000x1000 -> 500,500)
@@ -51,13 +52,18 @@ fun LayoutCanvas(
             val sy = screenHeight / install.height
             minOf(sx, sy)
         }
+        val updatedBaseScale = rememberUpdatedState(baseScale)
 
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(Unit) {
-                     awaitEachGesture {
+                .pointerInput(screenWidth, screenHeight) {
+                    awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
+                        
+                        // Capture fresh state for this gesture
+                        val installation = updatedInstallation.value
+                        val baseScale = updatedBaseScale.value
                         
                         // Transform Helper
                         // Screen = (Virtual - Cam) * Scale + ScreenCenter

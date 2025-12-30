@@ -60,7 +60,7 @@ class GameOfLifeAnimation : BasePixelAnimation() {
         // blur logic: custom1 was 128 default. Map 0-255 to 255-4.
         val blur = 64 // Fixed default for now as we don't have custom sliders exposed yet
 
-        val bgColor = Color.BLACK
+        val bgColor = Color.TRANSPARENT
         // birthColor: palette index 128
         val birthColor = hsvToRgb(128, 255, 255)
 
@@ -168,7 +168,7 @@ class GameOfLifeAnimation : BasePixelAnimation() {
                      // Keep current color or fade slightly?
                      // Pass
                 } else {
-                     setPixelColor(x, y, Color.BLACK)
+                     setPixelColor(x, y, Color.TRANSPARENT)
                 }
             }
         }

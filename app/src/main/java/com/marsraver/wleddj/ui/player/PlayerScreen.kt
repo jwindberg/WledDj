@@ -184,7 +184,10 @@ fun PlayerScreen(
         },
         floatingActionButton = {
             if (!isInteractive && !showSheet) {
-                FloatingActionButton(onClick = { showSheet = true }) {
+                FloatingActionButton(
+                    onClick = { showSheet = true },
+                    modifier = Modifier.navigationBarsPadding() // Prevent nav bar overlap
+                ) {
                      Icon(Icons.Default.Add, stringResource(R.string.add_animation))
                 }
             }
@@ -280,23 +283,26 @@ fun PlayerScreen(
                     }
                 }
 
-                // 3. BOTTOM SHEET (Custom Implementation)
+                // 3. BOTTOM SHEET (Standard ModalBottomSheet)
                 if (showSheet && !isInteractive) {
-                     AnimationSelectionSheet(
-                         modifier = Modifier.align(Alignment.BottomCenter),
-                         onSelect = { type ->
-                                val width = installation!!.width
-                                val height = installation!!.height
-                                
-                                // Drop at Center of Viewport (Camera Position)
-                                val cx = installation!!.cameraX ?: (width / 2f)
-                                val cy = installation!!.cameraY ?: (height / 2f)
-                                val zoom = installation!!.cameraZoom
-                                
-                                viewModel.onToolDropped(type, cx, cy, width, height, zoom)
-                                showSheet = false
-                         }
-                     )
+                     ModalBottomSheet(onDismissRequest = { showSheet = false }) {
+                         AnimationSelectionSheet(
+                             onSelect = { type ->
+                                    val width = installation!!.width
+                                    val height = installation!!.height
+                                    
+                                    // Drop at Center of Viewport (Camera Position)
+                                    val cx = installation!!.cameraX ?: (width / 2f)
+                                    val cy = installation!!.cameraY ?: (height / 2f)
+                                    val zoom = installation!!.cameraZoom
+                                    
+                                    viewModel.onToolDropped(type, cx, cy, width, height, zoom)
+                                    showSheet = false
+                             }
+                         )
+                         // Spacer for nav bar if needed, though ModalBottomSheet handles insets usually
+                         Spacer(modifier = Modifier.height(16.dp))
+                     }
                 }
             }
         }

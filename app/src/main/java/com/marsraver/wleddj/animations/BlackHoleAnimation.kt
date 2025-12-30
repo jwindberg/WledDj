@@ -1,6 +1,7 @@
 package com.marsraver.wleddj.animations
 
 import android.graphics.Color
+import com.marsraver.wleddj.engine.color.Palette
 import com.marsraver.wleddj.engine.math.MathUtils
 import kotlin.math.max
 import kotlin.math.min
@@ -12,7 +13,7 @@ import kotlin.math.min
 class BlackHoleAnimation : BasePixelAnimation() {
 
     override fun supportsPalette(): Boolean = true
-    override fun getDefaultPaletteName(): String = "Rainbow"
+    override fun getDefaultPalette(): Palette = Palette.RAINBOW
 
     private var solid: Boolean = false
     private var blur: Boolean = true // Enabled by default in source logic (though var said false, check logic used custom1)

@@ -138,25 +138,7 @@ enum class Palette(val displayName: String, val colors: Array<RgbColor>) {
         RgbColor(192, 192, 192),// Silver
         RgbColor(255, 0, 0),    // Red
         RgbColor(0, 255, 0)     // Green
-    )),
-
-    @SerialName("Default") DEFAULT("Default", RAINBOW.colors);
-
-    /**
-     * Get color at index, wrapping if needed.
-     */
-    fun getColor(index: Int): RgbColor {
-        if (colors.isEmpty()) return RgbColor.BLACK
-        val idx = (index % colors.size + colors.size) % colors.size
-        return colors[idx]
-    }
-    
-    /**
-     * Get Int color (ARGB).
-     */
-    fun getColorInt(index: Int): Int {
-        return getColor(index).toInt()
-    }
+    ));
 
     /**
      * Get color at normalized position (0.0-1.0).
@@ -166,10 +148,6 @@ enum class Palette(val displayName: String, val colors: Array<RgbColor>) {
         val pos = position.coerceIn(0.0, 1.0)
         val index = (pos * colors.size).toInt().coerceIn(0, colors.size - 1)
         return colors[index]
-    }
-    
-    fun getColorIntAt(position: Double): Int {
-        return getColorAt(position).toInt()
     }
 
     /**
@@ -197,17 +175,4 @@ enum class Palette(val displayName: String, val colors: Array<RgbColor>) {
         return Color.rgb(r, g, b)
     }
 
-    companion object {
-        fun fromName(name: String?): Palette {
-             if (name == null) return DEFAULT
-             // Try strict find first for performance
-             val found = entries.find { it.name.equals(name, true) || it.displayName.equals(name, true) }
-             return found ?: DEFAULT
-        }
-        
-        fun getRandom(): Palette {
-             val valid = entries.filter { it != DEFAULT }
-             return if (valid.isNotEmpty()) valid.random() else DEFAULT
-        }
-    }
 }

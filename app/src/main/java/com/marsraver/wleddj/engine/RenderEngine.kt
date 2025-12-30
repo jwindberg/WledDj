@@ -178,20 +178,29 @@ class RenderEngine(
             canvas.drawColor(Color.BLACK)
             
             // Global Transform: Translate World -> Bitmap Space
-            canvas.save()
-            canvas.translate(-renderOriginX, -renderOriginY)
-            
-            // Draw regions
-            // No need to copy list if we are under lock and iterating
-            activeRegions.forEach { region ->
-                canvas.save()
-                canvas.rotate(region.rotation, region.rect.centerX(), region.rect.centerY())
-                canvas.clipRect(region.rect)
-                canvas.translate(region.rect.left, region.rect.top)
-                region.animation.draw(canvas, region.rect.width(), region.rect.height())
-                canvas.restore()
+            // Global Transform: Translate World -> Bitmap Space
+            val saveCount = canvas.save()
+            try {
+                canvas.translate(-renderOriginX, -renderOriginY)
+                
+                // Draw regions
+                // No need to copy list if we are under lock and iterating
+                activeRegions.forEach { region ->
+                    val regionSaveCount = canvas.save()
+                    try {
+                        canvas.rotate(region.rotation, region.rect.centerX(), region.rect.centerY())
+                        canvas.clipRect(region.rect)
+                        canvas.translate(region.rect.left, region.rect.top)
+                        region.animation.draw(canvas, region.rect.width(), region.rect.height())
+                    } catch (e: Throwable) {
+                        android.util.Log.e("RenderEngine", "CRITICAL ERROR drawing animation: ${region.id}", e)
+                    } finally {
+                        canvas.restoreToCount(regionSaveCount)
+                    }
+                }
+            } finally {
+                canvas.restoreToCount(saveCount)
             }
-            canvas.restore() 
         }
     }
 
