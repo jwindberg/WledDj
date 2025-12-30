@@ -121,6 +121,8 @@ object AudioPipeline {
                     close()
                 }
             }
+        } catch (e: java.util.concurrent.CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Audio Setup Failed: ${e.message}")
             if (simulateWhenUnavailable) {
