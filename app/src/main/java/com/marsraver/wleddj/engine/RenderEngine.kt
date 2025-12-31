@@ -364,9 +364,7 @@ class RenderEngine(
         
         val aspectRatio = if (device.height > 1f) device.width / device.height else 100f
         
-        val isLikelyMatrix = (device.segmentWidth > 1) ||
-                             (device.pixelCount > 30 && aspectRatio < 6.0f) ||
-                             (device.pixelCount > 9 && aspectRatio < 2.0f)
+        val isLikelyMatrix = device.is2D
         
         val sampleOffsetX = -renderOriginX 
         val sampleOffsetY = -renderOriginY
@@ -376,6 +374,7 @@ class RenderEngine(
         
         if (isLikelyMatrix) {
              var cols = device.segmentWidth
+             // Fallback for badly configured matrices
             if (cols <= 0) {
                  val sqrt = kotlin.math.sqrt(device.pixelCount.toFloat())
                  if (kotlin.math.abs(sqrt - sqrt.roundToInt()) < 0.01f) {
@@ -387,11 +386,12 @@ class RenderEngine(
             }
             val rows = (device.pixelCount + cols - 1) / cols 
             
-            val stepX = if (cols > 1) device.width / (cols - 1) else 0f
-            val stepY = if (rows > 1) device.height / (rows - 1) else 0f
+            // Segment Center Logic
+            val stepX = device.width / cols
+            val stepY = device.height / rows
             
-            val startLocalX = -device.width / 2f
-            val startLocalY = -device.height / 2f
+            val startLocalX = -device.width / 2f + stepX / 2f
+            val startLocalY = -device.height / 2f + stepY / 2f
             
             for (i in 0 until device.pixelCount) {
                 val row = i / cols
@@ -413,9 +413,10 @@ class RenderEngine(
                 data[i * 3 + 2] = (pixel and 0xFF).toByte()
             }
         } else {
+             // Linear Strip logic (Segment Center)
             val length = device.width 
-            val step = if (device.pixelCount > 1) length / (device.pixelCount - 1) else 0f
-            val startLocalX = -device.width / 2f
+            val step = if (device.pixelCount > 0) length / device.pixelCount else 0f
+            val startLocalX = -device.width / 2f + step / 2f
             
             for (i in 0 until device.pixelCount) {
                 val localX = startLocalX + i * step

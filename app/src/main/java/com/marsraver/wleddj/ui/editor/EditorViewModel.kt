@@ -102,15 +102,8 @@ class EditorViewModel(
                  val ratio = wledH.toFloat() / wledW.toFloat()
                  200f to (200f * ratio)
             } else {
-                // Heuristic: Check if square
-                val sqrt = kotlin.math.sqrt(pixelCount.toFloat())
-                if (sqrt % 1.0 == 0.0) {
-                    // It's a square!
-                    200f to 200f
-                } else {
-                    // Default strip
-                    200f to 50f
-                }
+                // Default strip
+                200f to 50f
             }
 
             // Find free position
@@ -125,7 +118,7 @@ class EditorViewModel(
             }
             
             // Auto-detect matrix fields
-            val isMatrix = (wledW > 0) || (kotlin.math.sqrt(pixelCount.toFloat()) % 1.0 == 0.0)
+            val isMatrix = (wledW > 0)
 
             val newDevice = WledDevice(
                 ip = discovered.ip,
@@ -137,7 +130,7 @@ class EditorViewModel(
                 width = width,
                 height = height,
                 rotation = 0f,
-                segmentWidth = if (wledW > 0) wledW else if (isMatrix) kotlin.math.sqrt(pixelCount.toFloat()).toInt() else 0,
+                segmentWidth = if (wledW > 0) wledW else 0,
                 is2D = false,
                 matrixWidth = wledW,
                 matrixHeight = wledH,

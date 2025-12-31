@@ -183,17 +183,30 @@ fun LayoutCanvas(
                         topLeft = Offset(device.x, device.y),
                         size = Size(device.width, device.height)
                      )
-                     val dotsX = 10 
-                     val dotsY = (dotsX * (device.height / device.width)).roundToInt().coerceAtLeast(1)
-                     val stepX = device.width / dotsX
-                     val stepY = device.height / dotsY
-                     for(i in 0 until dotsX) {
-                        for(j in 0 until dotsY) {
-                             drawCircle(
-                                 color = Color.White.copy(alpha = 0.3f),
-                                 radius = 2f / totalScale,
-                                 center = Offset(device.x + stepX * i + stepX/2, device.y + stepY * j + stepY/2)
-                             )
+                     // Determine grid dimensions
+                     var cols = device.segmentWidth
+                     var rows = 1
+                     if (cols <= 0) {
+                        // Linear Strip
+                        cols = device.pixelCount
+                        rows = 1
+                     } else {
+                        // Matrix
+                        rows = (device.pixelCount + cols - 1) / cols
+                     }
+                     
+                     val stepX = device.width / cols
+                     val stepY = device.height / rows
+                     
+                     for(i in 0 until cols) {
+                        for(j in 0 until rows) {
+                             if (j * cols + i < device.pixelCount) {
+                                 drawCircle(
+                                     color = Color.White.copy(alpha = 0.3f),
+                                     radius = 2f / totalScale,
+                                     center = Offset(device.x + stepX * i + stepX/2, device.y + stepY * j + stepY/2)
+                                 )
+                             }
                         }
                      }
                 }
