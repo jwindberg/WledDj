@@ -64,6 +64,8 @@ enum class AnimationType(val displayName: String, val isAudioReactive: Boolean =
     @SerialName("FractalZoom") FRACTAL_ZOOM("Fractal Zoom"),
     @SerialName("Physarum") PHYSARUM("Physarum"),
     @SerialName("ReactionDiffusion") REACTION_DIFFUSION("Reaction Diffusion"),
+    @SerialName("Snow") SNOW("Snow"),
+    @SerialName("McQueen") MCQUEEN("McQueen"),
     
     @SerialName("Unknown") UNKNOWN("Unknown");
 

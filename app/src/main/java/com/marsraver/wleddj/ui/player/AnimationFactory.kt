@@ -71,6 +71,8 @@ object AnimationFactory {
             AnimationType.FRACTAL_ZOOM -> FractalZoomAnimation()
             AnimationType.PHYSARUM -> PhysarumAnimation()
             AnimationType.REACTION_DIFFUSION -> ReactionDiffusionAnimation()
+            AnimationType.SNOW -> SnowAnimation()
+            AnimationType.MCQUEEN -> McQueenAnimation(context)
             
             AnimationType.UNKNOWN -> BouncingBallAnimation(dropX, dropY, 30f)
         }
