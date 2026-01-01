@@ -95,7 +95,9 @@ class EditorViewModel(
             
             // Determine dimensions
             val wledW = info?.leds?.w ?: 0
-            val wledH = info?.leds?.h ?: 0
+            val rawH = info?.leds?.h ?: 0
+            // If H is 0 but W is > 0, infer H
+            val wledH = if (rawH > 0) rawH else if (wledW > 0 && pixelCount > 0) pixelCount / wledW else 0
             
             val (width, height) = if (wledW > 0 && wledH > 0) {
                  // Use WLED provided dimensions (scaled to some reasonable virtual size)
@@ -150,8 +152,18 @@ class EditorViewModel(
                 val startV = if (panel.b) "Bottom" else "Top"
                 val startH = if (panel.r) "Right" else "Left"
                 
+                // Recalculate visual dimensions from panel config (definitive source)
+                val pW = panel.w.toFloat()
+                val pH = panel.h.toFloat()
+                val visualRatio = if (pW > 0) pH / pW else 1f
+                val visualW = 200f
+                val visualH = 200f * visualRatio
+                
                 newDevice.copy(
                     is2D = true,
+                    // Update visuals to match reality
+                    width = visualW,
+                    height = visualH,
                     matrixWidth = panel.w,
                     matrixHeight = panel.h,
                     serpentine = panel.s,
