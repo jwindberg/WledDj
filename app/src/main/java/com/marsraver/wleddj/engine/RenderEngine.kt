@@ -19,7 +19,6 @@ class RenderEngine(
     private var installation: Installation
 ) {
 
-
     private val lock = Any()
     @Volatile
     private var isRunning = false
@@ -55,9 +54,7 @@ class RenderEngine(
     init {
         recalculateBounds()
     }
-
-
-
+    
     fun addRegion(region: AnimationRegion) {
         synchronized(lock) {
             activeRegions.add(region)
@@ -100,7 +97,6 @@ class RenderEngine(
                 }
             }
             recalculateBounds()
-            recalculateBounds()
         }
     }
 
@@ -110,7 +106,6 @@ class RenderEngine(
             if (index != -1 && index != activeRegions.lastIndex) {
                 val region = activeRegions.removeAt(index)
                 activeRegions.add(region)
-                // Bounds don't typically change on reorder, but safe to keep inconsistent state away
             }
         }
     }
@@ -125,9 +120,6 @@ class RenderEngine(
         }
     }
     
-    
-    // ...
-    
     fun start() {
         if (isRunning) return
         isRunning = true
@@ -137,7 +129,6 @@ class RenderEngine(
         
         renderJob = scope.launch {
             while (isRunning && isActive) {
-                // ... (loop content remains valid as is)
                 val startTime = System.nanoTime()
                 
                 renderFrame()
@@ -178,13 +169,11 @@ class RenderEngine(
             canvas.drawColor(Color.BLACK)
             
             // Global Transform: Translate World -> Bitmap Space
-            // Global Transform: Translate World -> Bitmap Space
             val saveCount = canvas.save()
             try {
                 canvas.translate(-renderOriginX, -renderOriginY)
                 
                 // Draw regions
-                // No need to copy list if we are under lock and iterating
                 activeRegions.forEach { region ->
                     val regionSaveCount = canvas.save()
                     try {
@@ -241,7 +230,6 @@ class RenderEngine(
             }
             
             // 2. Regions
-            // We are under lock, direct iteration safe
             activeRegions.forEach { region ->
                 val cx = region.rect.centerX()
                 val cy = region.rect.centerY()
@@ -269,7 +257,7 @@ class RenderEngine(
             }
             
             // Add padding just in case
-            val padding = 100f // Increased padding for safety
+            val padding = 100f 
             minX -= padding
             minY -= padding
             maxX += padding
@@ -330,26 +318,25 @@ class RenderEngine(
         synchronized(lock) {
             // Iterate in reverse
              for (region in activeRegions.reversed()) {
-                 // ... logic ...
-                val cx = region.rect.centerX()
-                val cy = region.rect.centerY()
-                
-                val dx = x - cx
-                val dy = y - cy
-                val rad = Math.toRadians(-region.rotation.toDouble())
-                val cos = Math.cos(rad)
-                val sin = Math.sin(rad)
-                
-                val rotX = (dx * cos - dy * sin).toFloat() + cx
-                val rotY = (dx * sin + dy * cos).toFloat() + cy
-                
-                if (region.rect.contains(rotX, rotY)) {
-                    val localX = rotX - region.rect.left
-                    val localY = rotY - region.rect.top
-                    if (region.animation.onTouch(localX, localY)) {
-                        return true
-                    }
-                }
+                 val cx = region.rect.centerX()
+                 val cy = region.rect.centerY()
+                 
+                 val dx = x - cx
+                 val dy = y - cy
+                 val rad = Math.toRadians(-region.rotation.toDouble())
+                 val cos = Math.cos(rad)
+                 val sin = Math.sin(rad)
+                 
+                 val rotX = (dx * cos - dy * sin).toFloat() + cx
+                 val rotY = (dx * sin + dy * cos).toFloat() + cy
+                 
+                 if (region.rect.contains(rotX, rotY)) {
+                     val localX = rotX - region.rect.left
+                     val localY = rotY - region.rect.top
+                     if (region.animation.onTouch(localX, localY)) {
+                         return true
+                     }
+                 }
              }
         }
         return false
@@ -384,9 +371,9 @@ class RenderEngine(
                  }
                  if (cols < 1) cols = 1
             }
-            val rows = (device.pixelCount + cols - 1) / cols 
             
-            // Segment Center Logic
+            // Standard Calculation Restored
+            val rows = (device.pixelCount + cols - 1) / cols 
             val stepX = device.width / cols
             val stepY = device.height / rows
             
@@ -466,5 +453,3 @@ class RenderEngine(
         return false
     }
 }
-
-
