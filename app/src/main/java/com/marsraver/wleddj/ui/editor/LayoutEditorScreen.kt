@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -108,21 +109,18 @@ fun LayoutEditorScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showRebootDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = stringResource(R.string.reboot_all),
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                     if (selectedDevice != null) {
                         IconButton(onClick = { showDetailsDialog = true }) {
                             Icon(
                                 imageVector = Icons.Default.Settings,
                                 contentDescription = stringResource(R.string.device_settings),
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                        IconButton(onClick = {
-                            selectedDevice?.let { viewModel.removeDevice(it) }
-                            selectedDeviceIp = null
-                        }) {
-                            Icon(
-                                imageVector = Icons.Default.Delete, 
-                                contentDescription = stringResource(R.string.delete_device),
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
@@ -146,12 +144,17 @@ fun LayoutEditorScreen(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.navigationBarsPadding() // Prevent nav bar overlap in landscape
             ) {
-                FloatingActionButton(
-                    onClick = { showRebootDialog = true },
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                ) {
-                    Icon(Icons.Default.Refresh, stringResource(R.string.reboot_all))
+                if (selectedDevice != null) {
+                    FloatingActionButton(
+                        onClick = { 
+                            selectedDevice?.let { viewModel.removeDevice(it) }
+                            selectedDeviceIp = null
+                        },
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    ) {
+                         Icon(Icons.Default.Remove, stringResource(R.string.delete_device))
+                    }
                 }
 
                 FloatingActionButton(onClick = { showAddSheet = true }) {

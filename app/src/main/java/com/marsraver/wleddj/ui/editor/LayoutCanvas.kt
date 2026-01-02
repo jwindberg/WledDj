@@ -99,11 +99,67 @@ fun LayoutCanvas(
                                      dragX += dx
                                      dragY += dy
                                      
-                                     // SNAP TO GRID (10px)
-                                     val snapX = (dragX / 10f).roundToInt() * 10f
-                                     val snapY = (dragY / 10f).roundToInt() * 10f
+                                     // --- PIXEL GRID SNAPPING ---
+                                     // Snap to the extended pixel grid of other devices
+                                     val snapDistScreen = 30f // Snap threshold in screen pixels
+                                     val snapDist = snapDistScreen / currentScale
                                      
-                                     currentOnMoveDeviceState.value(hitDevice, snapX, snapY, hitDevice.width, hitDevice.height, hitDevice.rotation)
+                                     val otherDevices = installation.devices.filter { it != hitDevice }
+                                     
+                                     var bestX = dragX
+                                     var minDX = Float.MAX_VALUE
+                                     
+                                     // X AXIS SNAPPING
+                                     otherDevices.forEach { target ->
+                                         // Determine Target Step X
+                                         val tCols = if (target.segmentWidth > 0) target.segmentWidth else target.pixelCount
+                                         val tStepX = target.width / tCols.toFloat()
+                                         
+                                         if (tStepX > 0) {
+                                             // Find nearest grid line (extended indefinitely) relative to target.x
+                                             // We want (dragX - target.x) to be a multiple of tStepX
+                                             val k = ((dragX - target.x) / tStepX).roundToInt()
+                                             val snapTargetX = target.x + k * tStepX
+                                             
+                                             val diff = kotlin.math.abs(dragX - snapTargetX)
+                                             if (diff < snapDist && diff < minDX) {
+                                                 minDX = diff
+                                                 bestX = snapTargetX
+                                             }
+                                         }
+                                     }
+                                     
+                                     var bestY = dragY
+                                     var minDY = Float.MAX_VALUE
+                                     
+                                     // Y AXIS SNAPPING
+                                     otherDevices.forEach { target ->
+                                         // Determine Target Step Y
+                                         var tRows = 1
+                                         if (target.segmentWidth > 0) {
+                                             tRows = (target.pixelCount + target.segmentWidth - 1) / target.segmentWidth
+                                         }
+                                         val tStepY = target.height / tRows.toFloat()
+                                         
+                                         if (tStepY > 0) {
+                                             // Find nearest grid line relative to target.y
+                                             val k = ((dragY - target.y) / tStepY).roundToInt()
+                                             val snapTargetY = target.y + k * tStepY
+                                             
+                                             val diff = kotlin.math.abs(dragY - snapTargetY)
+                                             if (diff < snapDist && diff < minDY) {
+                                                 minDY = diff
+                                                 bestY = snapTargetY
+                                             }
+                                         }
+                                     }
+                                     
+                                     // If magnet didn't catch, OPTIONAL: Keep weak grid snap? 
+                                     // For now, let's allow free movement if no magnet, to allow fine tuning.
+                                     // Or fallback to 1px/5px grid if desired. 
+                                     // Let's stick to PURE MAGNET + FREE for maximum precision.
+
+                                     currentOnMoveDeviceState.value(hitDevice, bestX, bestY, hitDevice.width, hitDevice.height, hitDevice.rotation)
                                      event.changes.forEach { it.consume() }
                                 }
                                 if (!event.changes.any { it.pressed }) {

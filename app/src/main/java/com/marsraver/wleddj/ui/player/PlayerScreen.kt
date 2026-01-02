@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.Remove
 // import androidx.compose.material.icons.filled.Edit // Removed unused edit
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.*
@@ -165,11 +166,6 @@ fun PlayerScreen(
                     }
 
                     if (!isInteractive) {
-                        if (selectedRegionId != null) {
-                             IconButton(onClick = { viewModel.deleteSelection() }) {
-                                Icon(Icons.Default.Delete, stringResource(R.string.delete_selection), tint = MaterialTheme.colorScheme.onSurface)
-                            }
-                        }
                          // Arrow to Performance Mode
                          IconButton(onClick = { viewModel.toggleInteractiveMode() }) {
                             Icon(
@@ -184,11 +180,26 @@ fun PlayerScreen(
         },
         floatingActionButton = {
             if (!isInteractive && !showSheet) {
-                FloatingActionButton(
-                    onClick = { showSheet = true },
+                Row(
+                    verticalAlignment = Alignment.CenterVertically, 
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.navigationBarsPadding() // Prevent nav bar overlap
                 ) {
-                     Icon(Icons.Default.Add, stringResource(R.string.add_animation))
+                    if (selectedRegionId != null) {
+                         FloatingActionButton(
+                             onClick = { viewModel.deleteSelection() },
+                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                         ) {
+                             Icon(Icons.Default.Remove, stringResource(R.string.delete_selection))
+                         }
+                    }
+
+                    FloatingActionButton(
+                        onClick = { showSheet = true }
+                    ) {
+                         Icon(Icons.Default.Add, stringResource(R.string.add_animation))
+                    }
                 }
             }
         }

@@ -24,6 +24,9 @@ fun HomeScreen(
 ) {
     var showDialog by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
+    
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var installToDelete by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -56,7 +59,10 @@ fun HomeScreen(
                     InstallationItem(
                         installation = install,
                         onClick = { onInstallationClick(install.id) },
-                        onDelete = { onDeleteClick(install.id) }
+                        onDelete = { 
+                            installToDelete = install.id
+                            showDeleteConfirm = true
+                        }
                     )
                 }
             }
@@ -90,6 +96,36 @@ fun HomeScreen(
                 dismissButton = {
                     TextButton(onClick = { showDialog = false }) {
                         Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        if (showDeleteConfirm && installToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { 
+                    showDeleteConfirm = false 
+                    installToDelete = null
+                },
+                title = { Text("Delete Installation?") },
+                text = { Text("Are you sure you want to delete this installation?") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            installToDelete?.let { onDeleteClick(it) }
+                            showDeleteConfirm = false
+                            installToDelete = null
+                        }
+                    ) {
+                        Text("Yes")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { 
+                        showDeleteConfirm = false 
+                        installToDelete = null
+                    }) {
+                        Text("No")
                     }
                 }
             )
