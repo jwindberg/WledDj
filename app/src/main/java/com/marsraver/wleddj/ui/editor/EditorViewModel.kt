@@ -15,10 +15,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+import android.widget.Toast
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
 class EditorViewModel(
     private val installationId: String,
     private val repository: InstallationRepository,
-    context: Context
+    private val context: Context
 ) : ViewModel() {
 
     private val _installation = MutableStateFlow<Installation?>(null)
@@ -92,6 +96,14 @@ class EditorViewModel(
             val info = httpClient.getDeviceInfo(discovered.ip)
             val name = info?.name ?: discovered.name
             val pixelCount = info?.leds?.count ?: 100 // Default
+            
+            // Limit Check: 480 LEDs
+            if (pixelCount > 480) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Error: Devices with more than 480 LEDs are not supported.", Toast.LENGTH_LONG).show()
+                }
+                return@launch
+            }
             
             // Determine dimensions
             val wledW = info?.leds?.w ?: 0
@@ -205,10 +217,18 @@ class EditorViewModel(
     
     fun forceRefreshDeviceConfig(device: WledDevice) {
         viewModelScope.launch {
+            // 1. Fetch Info for count check
+            val info = httpClient.getDeviceInfo(device.ip)
+            val count = info?.leds?.count ?: 0
+            
+            if (count > 480) {
+                 withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Error: Devices with more than 480 LEDs are not supported.", Toast.LENGTH_LONG).show()
+                }
+                return@launch
+            }
+
             val config = httpClient.getDeviceConfig(device.ip)
-            // Need to parse config similar to previous logic
-            // WledConfigResponse -> WledDevice
-            // BUT wait, WledHttpClient returns WledConfigResponse which has `hw.led.matrix`
             
             val matrix = config?.hw?.led?.matrix
             val panel = matrix?.panels?.firstOrNull()
@@ -218,22 +238,35 @@ class EditorViewModel(
                  val startV = if (panel.b) "Bottom" else "Top"
                  val startH = if (panel.r) "Right" else "Left"
 
+                 // Recalculate Dimensions to match addDevice logic (Visual Reset)
+                 val pW = panel.w.toFloat()
+                 val pH = panel.h.toFloat()
+                 val ratio = if (pW > 0) pH / pW else 1f
+                 val newW = 200f
+                 val newH = 200f * ratio
+
                  val updated = device.copy(
+                     width = newW,
+                     height = newH,
                      segmentWidth = panel.w,
                      is2D = true,
                      matrixWidth = panel.w,
                      matrixHeight = panel.h,
                      serpentine = panel.s, // s = serpentine
-                     // vertical = panel.v,    (Removed from model)
                      firstLed = "$startV-$startH",
                      orientation = vertText,
-                     panelDescription = "Panel 0 (of ${matrix.panels?.size ?: 1})"
+                     panelDescription = "Panel 0 (of ${matrix.panels?.size ?: 1})",
+                     pixelCount = count // Also update pixel count!
                  )
                  
                  // Update device in installation
                  val current = _installation.value ?: return@launch
                  val newDevices = current.devices.map { if (it.ip == device.ip) updated else it }
                  updateInstallation(current.copy(devices = newDevices))
+                 
+                 withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Device Updated", Toast.LENGTH_SHORT).show()
+                 }
             }
         }
     }
