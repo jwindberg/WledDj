@@ -72,6 +72,7 @@ object AnimationFactory {
             AnimationType.PHYSARUM -> PhysarumAnimation()
             AnimationType.REACTION_DIFFUSION -> ReactionDiffusionAnimation()
             AnimationType.SNOW -> SnowAnimation()
+            AnimationType.POPCORN -> PopcornAnimation()
             AnimationType.MCQUEEN -> McQueenAnimation(context)
             
             AnimationType.UNKNOWN -> BouncingBallAnimation(dropX, dropY, 30f)
@@ -138,6 +139,7 @@ object AnimationFactory {
             is PixelWaveAnimation -> AnimationType.PIXEL_WAVE
             is FreqMatrixAnimation -> AnimationType.FREQ_MATRIX
             is LakeAnimation -> AnimationType.LAKE
+            is PopcornAnimation -> AnimationType.POPCORN
             is DnaSpiralAnimation -> AnimationType.DNA_SPIRAL
             else -> AnimationType.BALL
         }

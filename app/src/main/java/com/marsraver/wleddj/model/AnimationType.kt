@@ -66,6 +66,7 @@ enum class AnimationType(val displayName: String, val isAudioReactive: Boolean =
     @SerialName("ReactionDiffusion") REACTION_DIFFUSION("Reaction Diffusion"),
     @SerialName("Snow") SNOW("Snow"),
     @SerialName("McQueen") MCQUEEN("McQueen"),
+    @SerialName("Popcorn") POPCORN("Popcorn"),
     
     @SerialName("Unknown") UNKNOWN("Unknown");
 
