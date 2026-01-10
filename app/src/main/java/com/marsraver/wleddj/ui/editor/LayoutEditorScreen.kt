@@ -270,6 +270,39 @@ fun LayoutEditorScreen(
                     } else {
                         DetailRow(stringResource(R.string.segment_width), selectedDevice.segmentWidth.toString())
                     }
+                    
+                    HorizontalDivider()
+                    Text("LED Spacing (units/LED, default 5.0)", style = MaterialTheme.typography.labelLarge)
+                    
+                    var hSpacingText by remember { mutableStateOf(selectedDevice.horizontalLedSpacing.toString()) }
+                    var vSpacingText by remember { mutableStateOf(selectedDevice.verticalLedSpacing.toString()) }
+                    
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = hSpacingText,
+                            onValueChange = { 
+                                hSpacingText = it
+                                val f = it.toFloatOrNull()
+                                if (f != null && f > 0) {
+                                    viewModel.updateDeviceSpacing(selectedDevice.ip, f, selectedDevice.verticalLedSpacing)
+                                }
+                            },
+                            label = { Text("Horiz (Width)") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = vSpacingText,
+                            onValueChange = { 
+                                vSpacingText = it
+                                val f = it.toFloatOrNull()
+                                if (f != null && f > 0) {
+                                    viewModel.updateDeviceSpacing(selectedDevice.ip, selectedDevice.horizontalLedSpacing, f)
+                                }
+                            },
+                            label = { Text("Vert (Height)") },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             },
             confirmButton = {

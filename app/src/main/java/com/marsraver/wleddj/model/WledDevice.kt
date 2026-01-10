@@ -25,5 +25,8 @@ data class WledDevice(
     // Human readable descriptions
     val firstLed: String = "",
     val orientation: String = "",
-    val panelDescription: String = ""
+    val panelDescription: String = "",
+    // LED Spacing (virtual units, default 5cm)
+    val horizontalLedSpacing: Float = 5f,
+    val verticalLedSpacing: Float = 5f
 )

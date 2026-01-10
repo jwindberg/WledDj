@@ -112,12 +112,11 @@ class EditorViewModel(
             val wledH = if (rawH > 0) rawH else if (wledW > 0 && pixelCount > 0) pixelCount / wledW else 0
             
             val (width, height) = if (wledW > 0 && wledH > 0) {
-                 // Use WLED provided dimensions (scaled to some reasonable virtual size)
-                 val ratio = wledH.toFloat() / wledW.toFloat()
-                 200f to (200f * ratio)
+                 // Matrix: Use matrix dimensions * spacing
+                 (wledW * 5f) to (wledH * 5f)
             } else {
-                // Default strip
-                200f to 50f
+                // Default strip: Length * spacing
+                (pixelCount * 5f) to 5f
             }
 
             // Find free position
@@ -174,8 +173,9 @@ class EditorViewModel(
                 newDevice.copy(
                     is2D = true,
                     // Update visuals to match reality
-                    width = visualW,
-                    height = visualH,
+                    // Update visuals to match reality with spacing
+                    width = panel.w * newDevice.horizontalLedSpacing,
+                    height = panel.h * newDevice.verticalLedSpacing,
                     matrixWidth = panel.w,
                     matrixHeight = panel.h,
                     serpentine = panel.s,
@@ -207,10 +207,52 @@ class EditorViewModel(
         val current = _installation.value ?: return
         val updatedDevices = current.devices.map {
             if (it.ip == ip) {
+                // Recalculate height based on new width (assuming matrix behavior change for strip?)
+                // Actually if changing segmentWidth on a strip to make it a matrix, we should resize.
+                val rows = (it.pixelCount + segmentWidth - 1) / segmentWidth
+                val newW = segmentWidth * it.horizontalLedSpacing
+                val newH = rows * it.verticalLedSpacing
+                
                 it.copy(
-                    segmentWidth = segmentWidth
+                    segmentWidth = segmentWidth,
+                    width = newW,
+                    height = newH
                 )
             } else it
+        }
+        updateInstallation(current.copy(devices = updatedDevices))
+    }
+
+    fun updateDeviceSpacing(ip: String, hSpacing: Float, vSpacing: Float) {
+        val current = _installation.value ?: return
+        val updatedDevices = current.devices.map { device ->
+            if (device.ip == ip) {
+                val newW: Float
+                val newH: Float
+                
+                // Recalculate dimensions
+                if (device.is2D || device.segmentWidth > 0) {
+                    val cols = if (device.segmentWidth > 0) device.segmentWidth else device.matrixWidth
+                     // Fallback if matrixWidth is 0 but segmentWidth > 0
+                    val wToCheck = if (cols > 0) cols else 1
+                    
+                    val rows = if (device.matrixHeight > 0) device.matrixHeight else (device.pixelCount + wToCheck - 1) / wToCheck
+                    
+                    newW = wToCheck * hSpacing
+                    newH = rows * vSpacing
+                } else {
+                    // Linear Strip
+                    newW = device.pixelCount * hSpacing
+                    newH = vSpacing // 1 row height
+                }
+                
+                device.copy(
+                    horizontalLedSpacing = hSpacing,
+                    verticalLedSpacing = vSpacing,
+                    width = newW,
+                    height = newH
+                )
+            } else device
         }
         updateInstallation(current.copy(devices = updatedDevices))
     }
@@ -239,11 +281,9 @@ class EditorViewModel(
                  val startH = if (panel.r) "Right" else "Left"
 
                  // Recalculate Dimensions to match addDevice logic (Visual Reset)
-                 val pW = panel.w.toFloat()
-                 val pH = panel.h.toFloat()
-                 val ratio = if (pW > 0) pH / pW else 1f
-                 val newW = 200f
-                 val newH = 200f * ratio
+                 // Recalculate Dimensions to match addDevice logic (Visual Reset)
+                 val newW = panel.w * device.horizontalLedSpacing
+                 val newH = panel.h * device.verticalLedSpacing
 
                  val updated = device.copy(
                      width = newW,
