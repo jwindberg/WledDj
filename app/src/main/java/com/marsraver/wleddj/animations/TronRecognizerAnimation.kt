@@ -31,8 +31,8 @@ class TronRecognizerAnimation(private val context: Context) : Animation, Corouti
         const val STROKE_WIDTH = 3f
         const val TEXT_SIZE = 60f
         const val CAMERA_DISTANCE = 400f
-        const val MODEL_SIZE = 600f
-        const val FRICTION = 0.98f
+        const val MODEL_SIZE = 200f
+        const val FRICTION = 1.0f
         const val MOMENTUM_SCALE = 0.15f
     }
 
