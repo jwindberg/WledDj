@@ -18,7 +18,7 @@ object AnimationFactory {
             AnimationType.GEQ -> GeqAnimation()
             AnimationType.MUSIC_BALL -> MusicBallAnimation()
             AnimationType.FLASHLIGHT -> FlashlightAnimation()
-            AnimationType.DEATH_STAR_RUN -> DeathStarAnimation(context)
+            AnimationType.ALL_SEEING_EYE -> AllSeeingEyeAnimation(context)
             AnimationType.SPECTROGRAM -> SpectrogramAnimation()
             AnimationType.FIREFLIES -> FirefliesAnimation()
             AnimationType.TRON_RECOGNIZER -> TronRecognizerAnimation(context)
@@ -97,7 +97,7 @@ object AnimationFactory {
             is SpectrogramAnimation -> AnimationType.SPECTROGRAM
             is FlashlightAnimation -> AnimationType.FLASHLIGHT
             is MusicBallAnimation -> AnimationType.MUSIC_BALL
-            is DeathStarAnimation -> AnimationType.DEATH_STAR_RUN
+            is AllSeeingEyeAnimation -> AnimationType.ALL_SEEING_EYE
             is FirefliesAnimation -> AnimationType.FIREFLIES
             is TronRecognizerAnimation -> AnimationType.TRON_RECOGNIZER
             is SpectrumTreeAnimation -> AnimationType.SPECTRUM_TREE

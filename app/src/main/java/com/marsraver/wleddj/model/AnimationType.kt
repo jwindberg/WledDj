@@ -11,7 +11,7 @@ enum class AnimationType(val displayName: String, val isAudioReactive: Boolean =
     @SerialName("GEQ") GEQ("GEQ", true),
     @SerialName("MusicBall") MUSIC_BALL("Music Ball", true),
     @SerialName("Flashlight") FLASHLIGHT("Flashlight"),
-    @SerialName("DeathStarRun") DEATH_STAR_RUN("Death Star Run"),
+    @SerialName("AllSeeingEye") ALL_SEEING_EYE("All Seeing Eye"),
     @SerialName("Spectrogram") SPECTROGRAM("Spectrogram", true),
     @SerialName("Fireflies") FIREFLIES("Fireflies"),
     @SerialName("TronRecognizer") TRON_RECOGNIZER("Tron Recognizer"),
