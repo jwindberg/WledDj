@@ -26,21 +26,28 @@ class BlackHoleAnimation : BasePixelAnimation() {
     }
 
     override fun update(now: Long): Boolean {
-        if (startTimeNs == 0L) startTimeNs = now
-        val timeMs = (now - startTimeNs) / 1_000_000
+        if (startTime == 0L) startTime = now
+        val timeMs = (now - startTime) // Input is already ms from BasePixelAnimation
         
-        val fadeAmount = max(2, (16 + (paramSpeed shr 3)) / 4)
+        // Fade faster when moving faster to keep tail length consistent
+        // Old: max(2, 4 + speed/32) -> Range 4..12 (Too slow for high speed)
+        // New: 10 + speed/4 -> Range 10..74
+        val fadeAmount = 10 + (paramSpeed shr 2)
         fadeToBlackBy(fadeAmount)
 
-        val t = timeMs / 128
-        val custom1 = 128
-        val custom2 = 128
+        // Fast time for movement, Slow time for shape evolution
+        val t = timeMs
+        val slowT = (timeMs / 128).toInt()
+        
+        val custom1 = paramSpeed
+        val custom2 = paramSpeed
 
         for (i in 0 until 8) {
             val phaseOffsetX = if (i % 2 == 1) 128 else 0
             val phaseOffsetY = if (i % 2 == 1) 192 else 64
-            val x = MathUtils.beatsin8(custom1 shr 3, 0, width - 1, t, phaseOffsetX + (t * i).toInt())
-            val y = MathUtils.beatsin8(paramIntensity shr 3, 0, height - 1, t, phaseOffsetY + (t * i).toInt())
+            // t for beat (movement), slowT for phase (shape)
+            val x = MathUtils.beatsin8(custom1 shr 3, 0, width - 1, t, phaseOffsetX + (slowT * i))
+            val y = MathUtils.beatsin8(custom1 shr 3, 0, height - 1, t, phaseOffsetY + (slowT * i))
 
             val paletteIndex = i * 32
             val brightness = if (solid) 0 else 255
@@ -58,8 +65,8 @@ class BlackHoleAnimation : BasePixelAnimation() {
             val minY = height / 4
             val maxY = height - 1 - height / 4
 
-            val x = MathUtils.beatsin8(innerFreq, minX, maxX, t, phaseOffsetX + (t * i).toInt())
-            val y = MathUtils.beatsin8(innerFreq, minY, maxY, t, phaseOffsetY + (t * i).toInt())
+            val x = MathUtils.beatsin8(innerFreq, minX, maxX, t, phaseOffsetX + (slowT * i))
+            val y = MathUtils.beatsin8(innerFreq, minY, maxY, t, phaseOffsetY + (slowT * i))
 
             val paletteIndex = 255 - i * 64
             val brightness = if (solid) 0 else 255

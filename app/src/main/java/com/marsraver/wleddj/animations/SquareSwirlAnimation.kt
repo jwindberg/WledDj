@@ -38,6 +38,12 @@ class SquareSwirlAnimation : Animation {
 
     // Params
     private var paramSpeed: Int = 128
+
+    override fun supportsSpeed(): Boolean = true
+    override fun setSpeed(speed: Float) {
+        paramSpeed = (speed * 255f).toInt().coerceIn(0, 255)
+    }
+    override fun getSpeed(): Float = paramSpeed / 255f
     
     // Logic State
     private var time: Float = 0f

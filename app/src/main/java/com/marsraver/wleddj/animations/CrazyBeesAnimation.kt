@@ -16,7 +16,7 @@ import kotlin.random.Random
 class CrazyBeesAnimation : Animation {
 
     // --- Animation Interface ---
-    private var _palette: Palette = Palette.STANDARD
+    private var _palette: Palette = Palette.PARTY
     override var currentPalette: Palette?
         get() = _palette
         set(value) { if (value != null) _palette = value }
@@ -29,6 +29,12 @@ class CrazyBeesAnimation : Animation {
     
     // Params
     private var paramSpeed: Int = 128
+    
+    override fun supportsSpeed(): Boolean = true
+    override fun setSpeed(speed: Float) {
+        paramSpeed = (speed * 255).toInt()
+    }
+    override fun getSpeed(): Float = paramSpeed / 255f
     
     // Tools
     private val paint = Paint().apply { isAntiAlias = true }

@@ -121,19 +121,33 @@ fun InteractivePlayerCanvas(
                         if (isInteractive) {
                                // In Interactive Mode (Performance), we trigger onInteract for "Touch" pos.
                                val rootOff = canvasGeometry.rootOffset
+                               
+                               val pointerId = down.id
                                currentOnInteractState.value(localX + rootOff.x, localY + rootOff.y)
                                
-                               // Loop to track dragging
-                               do {
+                               // Loop to track dragging for THIS pointer only
+                               var dragging = true
+                               while (dragging) {
                                    val event = awaitPointerEvent()
-                                   val change = event.changes.firstOrNull()
+                                   val change = event.changes.find { it.id == pointerId }
+                                   
                                    if (change != null) {
-                                       val curX = change.position.x
-                                       val curY = change.position.y
-                                       currentOnInteractState.value(curX + rootOff.x, curY + rootOff.y)
+                                       if (change.pressed) {
+                                           val curX = change.position.x
+                                           val curY = change.position.y
+                                           currentOnInteractState.value(curX + rootOff.x, curY + rootOff.y)
+                                           change.consume()
+                                       } else {
+                                           dragging = false // Lifted
+                                       }
+                                   } else {
+                                       dragging = false // Lost (shouldn't happen often)
                                    }
-                               } while (event.changes.any { it.pressed })
+                               }
                                
+                               // Ensure End is called when THIS pointer lifts
+                               // even if others are down
+                               currentOnInteractionEnd.value()
                         } else {
                                // EDIT MODE LOGIC (Selection / Dragging Regions)
                                val virtualPoint = screenToVirtual(down.position.x, down.position.y)
@@ -195,7 +209,27 @@ fun InteractivePlayerCanvas(
                                        if (canceled) break
                                        
                                        val panChange = event.calculatePan()
+                                       val zoomChange = event.calculateZoom()
                                        
+                                       // 1. Handle Animation Inner Transform (Pinch Resize)
+                                       if (zoomChange != 1f) {
+                                            // Calculate Centroid in Virtual Space
+                                            val centroid = event.calculateCentroid(useCurrent = true)
+                                            val rootOff = canvasGeometry.rootOffset
+                                            // Centroid is local to the Canvas composable (Screen Space)
+                                            // We need to convert to Virtual Space if the animation expects Virtual?
+                                            // Wait, previous simple implementation used "centroid.x + rootOff.x". 
+                                            // Flashlight uses 'targetX' which is relative to the Canvas Draw Scope (0..Width).
+                                            // 'rootOffset' in CanvasGeometry seems to handle window offsets?
+                                            // Let's stick to the previous WORKING logic for targetX:
+                                            val targetX = centroid.x + rootOff.x
+                                            val targetY = centroid.y + rootOff.y
+                                            
+                                            // Pass Zoom. Pan is 0 because Pan handles Region Move.
+                                            onTransform(targetX, targetY, 0f, 0f, zoomChange, 0f)
+                                       }
+                                       
+                                       // 2. Handle Region Move (Pan)
                                        if (panChange != Offset.Zero) {
                                             val region = currentRegionsState.value.find { it.id == hitId }
                                             if (region != null) {
@@ -217,6 +251,10 @@ fun InteractivePlayerCanvas(
                                                 }
                                                 currentOnUpdateState.value(hitId, newRect, region.rotation)
                                             }
+                                            // Only consume if we actually did something? 
+                                            // Consuming here might stop zoom calculation for next frame?
+                                            // calculateZoom uses previous position. Consuming position change shouldn't break zoom change calculation 
+                                            // as long as we have pointers.
                                             event.changes.forEach { it.consume() }
                                        }
                                    } while (event.changes.any { it.pressed })
@@ -227,17 +265,35 @@ fun InteractivePlayerCanvas(
                            }
                      }
                 }
-            // Use a separate pointerInput for Transform (Rotation)
+            // Restore Interactive Mode (Performance) Gesture Handler
             .pointerInput(isInteractive) {
                  if (isInteractive) {
                      val rootOff = canvasGeometry.rootOffset
-                     // We need to track the centroid for targetX/Y
                      detectTransformGestures { centroid, pan, zoom, rotation ->
                          val targetX = centroid.x + rootOff.x
                          val targetY = centroid.y + rootOff.y
-                         onTransform(targetX, targetY, pan.x, pan.y, zoom, rotation)
+                         
+                         // Performance Mode: Pan Only (Zoom suppressed here)
+                         onTransform(targetX, targetY, pan.x, pan.y, 1f, rotation)
                      }
                  }
+            }
+            // Reliable Gesture Reset Watcher (detectTransformGestures never returns)
+            .pointerInput(isInteractive) {
+                if (isInteractive) {
+                    awaitEachGesture {
+                        // Wait for any touch
+                        awaitFirstDown(requireUnconsumed = false)
+                        
+                        // Wait for all fingers to lift
+                        do {
+                            val event = awaitPointerEvent()
+                        } while (event.changes.any { it.pressed })
+                        
+                        // Reset Locks
+                        currentOnInteractionEnd.value()
+                    }
+                }
             }
     ) {
          val width = installation.width

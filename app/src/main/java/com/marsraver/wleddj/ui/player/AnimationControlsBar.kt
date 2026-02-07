@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,11 +27,12 @@ fun AnimationControlsBar(
     onPrimaryColorChange: (Int) -> Unit,
     onSecondaryColorChange: (Int) -> Unit,
     onPaletteChange: (Palette) -> Unit,
-    onTextChange: (String) -> Unit
+    onTextChange: (String) -> Unit,
+    onSpeedChange: (Float) -> Unit
 ) {
     if (!state.hasSelection) return
 
-    val hasControls = state.supportsPrimary || state.supportsSecondary || state.supportsPalette || state.supportsText
+    val hasControls = state.supportsPrimary || state.supportsSecondary || state.supportsPalette || state.supportsText || state.supportsSpeed
     if (!hasControls) return
 
     var showPrimaryPicker by remember { mutableStateOf(false) }
@@ -38,14 +40,40 @@ fun AnimationControlsBar(
     var showPalettePicker by remember { mutableStateOf(false) }
     var showTextPicker by remember { mutableStateOf(false) }
 
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp)
-            .height(56.dp), // Align height roughly with FAB
-        horizontalArrangement = Arrangement.Start, // Left aligned, next to FAB on right?
-        verticalAlignment = Alignment.CenterVertically
+            .padding(16.dp),
+        horizontalAlignment = Alignment.Start
     ) {
+        if (state.supportsSpeed) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically, 
+                modifier = Modifier.width(260.dp).height(40.dp) // Fixed width, prevent overlap
+            ) {
+                Text(
+                    text = "Speed", 
+                    style = MaterialTheme.typography.bodySmall, 
+                    color = Color.White,
+                    modifier = Modifier.width(60.dp)
+                )
+                Slider(
+                    value = state.currentSpeed,
+                    onValueChange = onSpeedChange,
+                    valueRange = 0f..1f,
+                    modifier = Modifier.weight(1f) // Takes remaining space in 260dp row
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp), // Align height roughly with FAB
+            horizontalArrangement = Arrangement.Start, // Left aligned, next to FAB on right?
+            verticalAlignment = Alignment.CenterVertically
+        ) {
         if (state.supportsPrimary) {
             ControlItem(
                 label = stringResource(R.string.label_primary), 
@@ -83,6 +111,7 @@ fun AnimationControlsBar(
             ) {
                 Text(stringResource(R.string.action_text))
             }
+        }
         }
     }
     

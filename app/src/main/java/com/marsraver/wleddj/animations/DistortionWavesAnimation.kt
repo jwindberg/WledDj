@@ -17,42 +17,46 @@ class DistortionWavesAnimation : BasePixelAnimation() {
     private var zoom: Boolean = false
     private var alt: Boolean = false
     private var paletteMode: Int = 1 // default to 1 (HSV/Palette)
-    private var startTimeMs: Long = 0
+    private var accumulatedTime: Double = 0.0
+    private var lastTimeMs: Long = 0
     
-    override fun getDefaultPalette(): Palette = Palette.RAINBOW
+    override fun getDefaultPalette(): Palette = Palette.PARTY
 
     override fun onInit() {
-        startTimeMs = System.currentTimeMillis()
+        accumulatedTime = 0.0
+        lastTimeMs = 0
     }
 
     override fun update(now: Long): Boolean {
-        // BasePixel uses now in Nano. 
-        // Logic relies on Millis.
-        val timeMs = now / 1_000_000
-        if (startTimeMs == 0L) startTimeMs = timeMs 
+        if (lastTimeMs == 0L) lastTimeMs = now
+        // now is already in Milliseconds (passed from BasePixelAnimation)
+        val dtSeconds = (now - lastTimeMs) / 1000.0
+        lastTimeMs = now
         
-        val elapsed = timeMs - startTimeMs
+        // Speed Control:
+        val speedMult = (paramSpeed / 255.0) * 3.0
+        accumulatedTime += dtSeconds * speedMult * 1000.0 
+
+        val elapsed = accumulatedTime.toLong()
 
         // We iterate every pixel and set color
-        val speedVal = paramSpeed / 32
         var scaleVal = scale / 32
-
         if (zoom) scaleVal += 192 / (width + height)
 
-        val a = elapsed / 32
+        val a = (elapsed / 32).toInt()
         val a2 = a / 2
         val a3 = a / 3
 
         val colsScaled = width * scaleVal
         val rowsScaled = height * scaleVal
 
-        // beatsin8 returns int 0-255ish but mapped to range.
-        val cx = MathUtils.beatsin8(10 - speedVal, 0, colsScaled, elapsed)
-        val cy = MathUtils.beatsin8(12 - speedVal, 0, rowsScaled, elapsed)
-        val cx1 = MathUtils.beatsin8(13 - speedVal, 0, colsScaled, elapsed)
-        val cy1 = MathUtils.beatsin8(15 - speedVal, 0, rowsScaled, elapsed)
-        val cx2 = MathUtils.beatsin8(17 - speedVal, 0, colsScaled, elapsed)
-        val cy2 = MathUtils.beatsin8(14 - speedVal, 0, rowsScaled, elapsed)
+        // beatsin8 requires Long time but returns Int
+        val cx = MathUtils.beatsin8(6, 0, colsScaled, elapsed)
+        val cy = MathUtils.beatsin8(7, 0, rowsScaled, elapsed)
+        val cx1 = MathUtils.beatsin8(8, 0, colsScaled, elapsed)
+        val cy1 = MathUtils.beatsin8(9, 0, rowsScaled, elapsed)
+        val cx2 = MathUtils.beatsin8(10, 0, colsScaled, elapsed)
+        val cy2 = MathUtils.beatsin8(11, 0, rowsScaled, elapsed)
 
         for (x in 0 until width) {
             for (y in 0 until height) {

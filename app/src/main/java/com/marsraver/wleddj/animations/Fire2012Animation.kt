@@ -10,7 +10,7 @@ import kotlin.random.Random
  */
 import com.marsraver.wleddj.engine.color.Palette
 
-class Fire2012_2DAnimation : BasePixelAnimation() {
+class Fire2012Animation : BasePixelAnimation() {
     
     override fun getDefaultPalette(): Palette = Palette.HEAT
 
@@ -24,7 +24,8 @@ class Fire2012_2DAnimation : BasePixelAnimation() {
         if (width == 0 || height == 0) return true
         
         // Cooling / Sparking
-        val cooling = (paramSpeed * 0.5).toInt().coerceAtLeast(20) 
+        // Adjusted: More wind (cooling) to keep flames controlled at low speeds.
+        val cooling = (paramSpeed * 0.6 + 10).toInt().coerceAtLeast(30) 
         val sparking = paramIntensity.coerceIn(0, 255)
         
         for (x in 0 until width) {

@@ -39,6 +39,12 @@ class WavingCellAnimation : Animation {
     // Params
     private var paramSpeed: Int = 128
     
+    override fun supportsSpeed(): Boolean = true
+    override fun setSpeed(speed: Float) {
+        paramSpeed = (speed * 255f).toInt().coerceIn(0, 255)
+    }
+    override fun getSpeed(): Float = paramSpeed / 255f
+    
     private var timeSeconds: Double = 0.0
 
     override fun draw(canvas: Canvas, width: Float, height: Float) {

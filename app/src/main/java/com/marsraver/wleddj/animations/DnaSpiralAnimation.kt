@@ -34,7 +34,14 @@ class DnaSpiralAnimation : Animation {
     private val clearRect = Rect()
 
     // Params
+    // Params
     private var paramSpeed: Int = 128
+    
+    override fun supportsSpeed(): Boolean = true
+    override fun setSpeed(speed: Float) {
+        paramSpeed = (speed * 255).toInt()
+    }
+    override fun getSpeed(): Float = paramSpeed / 255f
     
     // Logic
     private var timeSeconds: Double = 0.0

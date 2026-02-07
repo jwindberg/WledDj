@@ -25,6 +25,18 @@ class AquariumAnimation : Animation {
         set(value) { if (value != null) _palette = value }
 
     override fun supportsPalette(): Boolean = true // Used for Fish colors
+    override fun supportsSpeed(): Boolean = true
+    
+    // Speed Control
+    // 0.5 input = 1.0 multiplier (Normal speed)
+    // Range: 0.0 (Pause) to 2.0 (Double speed)
+    private var speedMultiplier: Float = 1.0f
+
+    override fun setSpeed(speed: Float) {
+        speedMultiplier = speed * 2f
+    }
+
+    override fun getSpeed(): Float = speedMultiplier / 2f
 
     // State
     private var buffer: Bitmap? = null
@@ -115,7 +127,7 @@ class AquariumAnimation : Animation {
         val cleanDt = if (dt > 0.1f) 0.033f else dt
 
         // Base speed was 0.05 per frame @ 30fps = 1.5 per second
-        time += cleanDt * 1.5f 
+        time += cleanDt * 1.5f * speedMultiplier 
         
         // 3. Draw Plants (Back Layer)
         drawPlants(bufCanvas, width, height)
@@ -190,7 +202,7 @@ class AquariumAnimation : Animation {
         // Assume target 30fps for conversion of old units
         // Old speed: vx [pixels/frame]
         // New speed: vx * 30 [pixels/second] * dt [seconds]
-        val speedScale = 30f * dt
+        val speedScale = 30f * dt * speedMultiplier
 
         for (f in fishList) {
             f.x += f.vx * speedScale
@@ -232,7 +244,7 @@ class AquariumAnimation : Animation {
     }
     
     private fun updateAndDrawBubbles(c: Canvas, w: Float, h: Float, dt: Float) {
-        val speedScale = 30f * dt
+        val speedScale = 30f * dt * speedMultiplier
         
         // Spawn chance logic:
         // We want ~10% probability per 33ms frame.

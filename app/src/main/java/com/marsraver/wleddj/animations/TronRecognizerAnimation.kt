@@ -122,8 +122,8 @@ class TronRecognizerAnimation(private val context: Context) : Animation, Corouti
              posY = height / 2f
         }
 
-        // Clear background
-        canvas.drawColor(Color.BLACK)
+        // Background cleared by RenderEngine
+
 
         // Show Loading/Error state if empty
         if (loadedVertices.isEmpty()) {
@@ -141,6 +141,10 @@ class TronRecognizerAnimation(private val context: Context) : Animation, Corouti
         }
 
         try {
+            val fitScale = min(width, height) / 200f // Doubled scale per user request
+            canvas.save()
+            canvas.scale(fitScale, fitScale, width / 2f, height / 2f)
+
             val currentTime = System.currentTimeMillis()
             val dt = 1.0f / 30.0f // Approx delta time (or calculate real)
 
@@ -182,6 +186,7 @@ class TronRecognizerAnimation(private val context: Context) : Animation, Corouti
                 rotX, rotY, rotZ, 
                 width, height
             )
+            canvas.restore()
 
         } catch (e: Exception) {
             e.printStackTrace()

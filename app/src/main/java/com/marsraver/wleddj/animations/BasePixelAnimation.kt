@@ -33,15 +33,14 @@ abstract class BasePixelAnimation : Animation {
     protected var paramIntensity: Int = 128
     
     // Backing fields
-    // Backing fields
     private var _primaryColor: Int = getDefaultPrimaryColor()
     private var _secondaryColor: Int = Color.BLACK
-    private var _palette: Palette = Palette.STANDARD
+    private var _palette: Palette = getDefaultPalette()
 
     /**
      * Override to specify a different default palette for this animation.
      */
-    open fun getDefaultPalette(): Palette = Palette.STANDARD
+    open fun getDefaultPalette(): Palette = Palette.RAINBOW
 
     /**
      * Override to specify a different default primary color.
@@ -71,6 +70,12 @@ abstract class BasePixelAnimation : Animation {
     override fun supportsSecondaryColor(): Boolean = false
     override fun supportsPalette(): Boolean = false
     
+    override fun supportsSpeed(): Boolean = true
+    override fun setSpeed(speed: Float) {
+        paramSpeed = (speed * 255f).roundToInt().coerceIn(0, 255)
+    }
+    override fun getSpeed(): Float = paramSpeed / 255f
+    
     // Abstract Init
     abstract fun onInit()
     
@@ -91,7 +96,7 @@ abstract class BasePixelAnimation : Animation {
         }
         
         // Run update logic
-        update(System.nanoTime())
+        update(System.currentTimeMillis())
         
         // Render
         bitmap?.let { bmp ->

@@ -21,6 +21,15 @@ class SwirlAnimation : Animation {
         set(value) { if (value != null) _palette = value }
 
     override fun supportsPalette(): Boolean = true
+    override fun supportsSpeed(): Boolean = true
+    
+    override fun setSpeed(speed: Float) {
+        // paramSpeed is 0-255 in update logic
+        // map 0.0-1.0 float to 0-255 int
+        paramSpeed = (speed * 255).toInt()
+    }
+    
+    override fun getSpeed(): Float = paramSpeed / 255f
 
     // State
     private var buffer: Bitmap? = null

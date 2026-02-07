@@ -21,6 +21,13 @@ class GlobeAnimation : Animation {
     private var rotation: Double = 0.0
     private var cloudRotation: Double = 0.0
     private var paramSpeed = 128
+    
+    // Speed Support
+    override fun supportsSpeed(): Boolean = true
+    override fun setSpeed(speed: Float) {
+        paramSpeed = (speed * 255f).toInt().coerceIn(0, 255)
+    }
+    override fun getSpeed(): Float = paramSpeed / 255f
 
     // Constants
     private val radiusPercentage = 0.85 // Globe size relative to min dimension

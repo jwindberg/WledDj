@@ -4,7 +4,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import com.marsraver.wleddj.engine.Animation
-import com.marsraver.wleddj.engine.audio.BeatDetector
+import com.marsraver.wleddj.engine.audio.LoudnessMeter
 import kotlin.random.Random
 
 class MusicBallAnimation : BasePixelAnimation() {
@@ -61,14 +61,31 @@ class MusicBallAnimation : BasePixelAnimation() {
          return true
     }
 
+    private val loudnessMeter = LoudnessMeter()
+    
+    // Params
+    // paramSpeed is inherited from BasePixelAnimation, DO NOT re-declare it.
+    
+    override fun supportsSpeed(): Boolean = true
+    override fun setSpeed(speed: Float) {
+        paramSpeed = (speed * 255f).toInt().coerceIn(0, 255)
+    }
+    override fun getSpeed(): Float = paramSpeed / 255f
+
     override fun draw(canvas: Canvas, width: Float, height: Float) {
         // Fade previous frame
         canvas.drawRect(0f, 0f, width, height, bgPaint)
         
-        // Spawn Balls on Beat
-        if (BeatDetector.isRange(0, 5, 20)) { 
-             val level = BeatDetector.getLevel()
-             val spawnCount = (level * 20).toInt().coerceAtLeast(1)
+        // Audio Logic
+        val normalizedLoudness = loudnessMeter.getNormalizedLoudness()
+        // Threshold for spawn (tuned to be reactive)
+        // 512 is mid-range. 
+        val spawnThreshold = 300
+        val isBeat = normalizedLoudness > spawnThreshold && Random.nextFloat() < 0.3f
+        
+        if (isBeat) { 
+             val level = normalizedLoudness / 1024f
+             val spawnCount = (level * 5).toInt().coerceAtLeast(1)
              
              repeat(spawnCount) {
                  // "Next" color for each ball
@@ -76,7 +93,10 @@ class MusicBallAnimation : BasePixelAnimation() {
                  val col = getColorFromPalette(paletteIndex)
                  val bx = Random.nextFloat() * width
                  val by = Random.nextFloat() * height
-                 val mag = level * 70f // Speed magnitude
+                 
+                 // Speed Boost
+                 val speedFactor = 0.5f + (paramSpeed / 255f) * 1.5f
+                 val mag = level * 70f * speedFactor
                  
                  val vx = (Random.nextFloat() - 0.5f) * 2f
                  val vy = (Random.nextFloat() - 0.5f) * 2f

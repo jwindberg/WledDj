@@ -314,10 +314,75 @@ class RenderEngine(
         }
     }
     
+    // Gesture Locking
+    private var gestureLockedRegionId: String? = null
+    
+    fun resetGestureLock() {
+        synchronized(lock) {
+            if (gestureLockedRegionId != null) {
+                val region = activeRegions.find { it.id == gestureLockedRegionId }
+                region?.animation?.onInteractionEnd()
+                gestureLockedRegionId = null
+            }
+        }
+    }
+
     fun handleTouch(x: Float, y: Float): Boolean {
         synchronized(lock) {
-            // Iterate in reverse
+            // ... Locked Region Check ...
+            if (gestureLockedRegionId != null) {
+                val region = activeRegions.find { it.id == gestureLockedRegionId }
+                if (region != null) {
+                     // Transform point to local
+                     val cx = region.rect.centerX()
+                     val cy = region.rect.centerY()
+                     val dx = x - cx
+                     val dy = y - cy
+                     val rad = Math.toRadians(-region.rotation.toDouble())
+                     val cos = Math.cos(rad)
+                     val sin = Math.sin(rad)
+                     val rotX = (dx * cos - dy * sin).toFloat() + cx
+                     val rotY = (dx * sin + dy * cos).toFloat() + cy
+                     
+                     val localX = rotX - region.rect.left
+                     val localY = rotY - region.rect.top
+                     region.animation.onTouch(localX, localY)
+                     return true // Always consume if locked
+                } else {
+                    gestureLockedRegionId = null
+                }
+            }
+            
+            // 2. Priority Pass: Global Tools
              for (region in activeRegions.reversed()) {
+                 if (region.animation.ignoresBounds()) {
+                     // Need local coords? Flashlight uses absolute X/Y from onTouch.
+                     // But strictly, onTouch receives LOCAL.
+                     // We need to transform X/Y to Local for Priority pass too.
+                     val cx = region.rect.centerX()
+                     val cy = region.rect.centerY()
+                     val dx = x - cx
+                     val dy = y - cy
+                     val rad = Math.toRadians(-region.rotation.toDouble())
+                     val cos = Math.cos(rad)
+                     val sin = Math.sin(rad)
+                     val rotX = (dx * cos - dy * sin).toFloat() + cx
+                     val rotY = (dx * sin + dy * cos).toFloat() + cy
+                     
+                     val localX = rotX - region.rect.left
+                     val localY = rotY - region.rect.top
+                     
+                     if (region.animation.onTouch(localX, localY)) {
+                         gestureLockedRegionId = region.id
+                         return true
+                     }
+                 }
+             }
+
+            // 3. Normal Pass: Hit Testing
+             for (region in activeRegions.reversed()) {
+                 if (region.animation.ignoresBounds()) continue // Handled above
+
                  val cx = region.rect.centerX()
                  val cy = region.rect.centerY()
                  
@@ -330,10 +395,12 @@ class RenderEngine(
                  val rotX = (dx * cos - dy * sin).toFloat() + cx
                  val rotY = (dx * sin + dy * cos).toFloat() + cy
                  
+                 // Hit Logic: Contains ONLY
                  if (region.rect.contains(rotX, rotY)) {
                      val localX = rotX - region.rect.left
                      val localY = rotY - region.rect.top
                      if (region.animation.onTouch(localX, localY)) {
+                         gestureLockedRegionId = region.id
                          return true
                      }
                  }
@@ -341,6 +408,9 @@ class RenderEngine(
         }
         return false
     }
+
+    // ... mapDeviceToBuffer ...
+
 
     private fun mapDeviceToBuffer(device: WledDevice, data: ByteArray) {
         val rad = Math.toRadians(device.rotation.toDouble())
@@ -426,13 +496,32 @@ class RenderEngine(
 
     fun handleTransform(targetX: Float, targetY: Float, panX: Float, panY: Float, zoom: Float, rotation: Float): Boolean {
         synchronized(lock) {
-            // Forward transform to checking regions
+            // Priority: Locked Region
+            if (gestureLockedRegionId != null) {
+                val region = activeRegions.find { it.id == gestureLockedRegionId }
+                if (region != null) {
+                    return region.animation.onTransform(panX, panY, zoom, rotation)
+                }
+            }
+
+            // 2. Priority Pass: Global Tools (ignoresBounds = true)
+            // These capture input even if covered by other layers (e.g. Flashlight behind Tron)
              for (region in activeRegions.reversed()) {
-                 // Check if target point is in region
+                 if (region.animation.ignoresBounds()) {
+                     // Check Logic (Always Hits)
+                     if (region.animation.onTransform(panX, panY, zoom, rotation)) {
+                         gestureLockedRegionId = region.id
+                         return true
+                     }
+                 }
+             }
+
+            // 3. Normal Pass: Hit Testing
+             for (region in activeRegions.reversed()) {
+                 if (region.animation.ignoresBounds()) continue // Handled in Priority Pass
+
                  val cx = region.rect.centerX()
                  val cy = region.rect.centerY()
-                 
-                 // Transform target point to local space to check bounds
                  val dx = targetX - cx
                  val dy = targetY - cy
                  val rad = Math.toRadians(-region.rotation.toDouble())
@@ -441,15 +530,22 @@ class RenderEngine(
                  val rotX = (dx * cos - dy * sin).toFloat() + cx
                  val rotY = (dx * sin + dy * cos).toFloat() + cy
                  
+                 // Hit Logic: Contains ONLY (Strict)
                  if (region.rect.contains(rotX, rotY)) {
-                     // Pass through. Note: Pan is in global SCREEN pixels (or virtual pixels if scaled)
-                     // Rotation is degrees. Zoom is scale factor multiplier.
+                     // Pass through Transform
                      if (region.animation.onTransform(panX, panY, zoom, rotation)) {
+                         gestureLockedRegionId = region.id
                          return true
                      }
                  }
              }
         }
         return false
+    }
+
+    fun broadcastCommand(cmd: String) {
+        synchronized(lock) {
+            activeRegions.forEach { it.animation.onCommand(cmd) }
+        }
     }
 }

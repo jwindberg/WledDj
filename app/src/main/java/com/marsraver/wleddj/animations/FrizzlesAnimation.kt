@@ -20,10 +20,16 @@ class FrizzlesAnimation : BasePixelAnimation() {
         // fade
         fadeToBlackBy(16)
 
-        val timeMs = now / 1_000_000
+        // Use millis directly as 'timeMs' for beatsin8
+        val timeMs = now
         val loops = 8
+        
+        // Map paramSpeed (0-255) to Frequency (4-42)
+        val speedVal = if (paramSpeed == 0) 1 else paramSpeed
+        val baseFreq = 4 + (speedVal * 38) / 255
+        
         for (i in loops downTo 1) {
-            val freqBase = 12
+            val freqBase = baseFreq
             val x = MathUtils.beatsin8(freqBase + i, 0, width - 1, timeMs)
             val y = MathUtils.beatsin8(15 - i, 0, height - 1, timeMs)
             val hue = MathUtils.beatsin8(freqBase, 0, 255, timeMs)

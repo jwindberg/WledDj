@@ -41,11 +41,18 @@ class JuliaAnimation : BasePixelAnimation() {
         }
     }
 
+    // Speed Support
+    override fun supportsSpeed(): Boolean = true
+    override fun setSpeed(speed: Float) {
+        paramSpeed = (speed * 255f).toInt().coerceIn(0, 255)
+    }
+    override fun getSpeed(): Float = paramSpeed / 255f
+
     override fun update(now: Long): Boolean {
         if (startTimeNs == 0L) startTimeNs = System.nanoTime()
         val timeMs = (System.nanoTime() - startTimeNs) / 1_000_000
 
-        // Update Julia state
+        // Update Julia state via App Interactivity (Custom/Drag)
         juliaState.xcen += (custom1 - 128) / 100000.0f
         juliaState.ycen += (custom2 - 128) / 100000.0f
         juliaState.xymag += ((custom3 - 16) shl 3) / 100000.0f
@@ -54,7 +61,7 @@ class JuliaAnimation : BasePixelAnimation() {
         if (juliaState.xymag < 0.01f) juliaState.xymag = 0.01f
         if (juliaState.xymag > 1.0f) juliaState.xymag = 1.0f
 
-        // Bounds
+        // Bounds logic...
         var xmin = juliaState.xcen - juliaState.xymag
         var xmax = juliaState.xcen + juliaState.xymag
         var ymin = juliaState.ycen - juliaState.xymag
@@ -75,8 +82,13 @@ class JuliaAnimation : BasePixelAnimation() {
         var reAl = -0.94299f 
         var imAg = 0.3162f
 
-        reAl += sin16_t(timeMs * 34) / 655340.0f
-        imAg += sin16_t(timeMs * 26) / 655340.0f
+        // Speed Application
+        // Default was ~34/26.
+        // Map speed 0..255 to factor 0..3 (Slow..Fast)
+        val speedFactor = 0.1f + (paramSpeed / 255f) * 3.0f
+        
+        reAl += sin16_t((timeMs * 34 * speedFactor).toLong()) / 655340.0f
+        imAg += sin16_t((timeMs * 26 * speedFactor).toLong()) / 655340.0f
 
         var y = ymin
         for (j in 0 until height) {

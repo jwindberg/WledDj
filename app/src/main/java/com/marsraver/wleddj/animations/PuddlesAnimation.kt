@@ -47,12 +47,22 @@ class PuddlesAnimation : Animation {
         style = Paint.Style.STROKE
     }
 
+    // Speed Control
+    override fun supportsSpeed(): Boolean = true
+    override fun setSpeed(speed: Float) {
+        // Map 0.0-1.0 to 0-255
+        paramSpeed = (speed * 255f).toInt().coerceIn(0, 255)
+    }
+    override fun getSpeed(): Float = paramSpeed / 255f
+    
+    // Palette Control is already present (supportsPalette = true)
+
     private var isInit = false
     private fun init() {
-        if (!isInit) {
-            loudnessMeter = LoudnessMeter()
-            isInit = true
-        }
+         if (!isInit) {
+             loudnessMeter = LoudnessMeter()
+             isInit = true
+         }
     }
 
     override fun draw(canvas: Canvas, width: Float, height: Float) {
@@ -61,54 +71,60 @@ class PuddlesAnimation : Animation {
         val now = System.currentTimeMillis()
         val loudness: Float = (loudnessMeter?.getNormalizedLoudness() ?: 0).toFloat()
         
-        // Spawn Logic
-        // Reduce rate: larger interval.
-        // paramSpeed 0..255. 
-        // 0 -> 500ms (Slow)
-        // 255 -> 100ms (Fast)
-        val minInterval = 500 - (paramSpeed / 255f) * 400
+        // --- Spawn Logic ---
+        // Speed controls Frequency (Spawn Rate).
+        // 0.0 (Slow) -> 2000ms interval
+        // 1.0 (Fast) -> 100ms interval
+        val normalizedSpeed = paramSpeed / 255f
+        val minInterval = 2000L - (normalizedSpeed * 1900L)
         
         if (now - lastPuddleTime > minInterval) {
-            // Trigger?
-            // Increase threshold to reduce sensitivity
+            // Audio Trigger
             if (loudness > 20f) { 
                 spawnRipple(width, height, loudness)
                 lastPuddleTime = now
-            } else if (Random.nextFloat() < 0.005f) { // Occasional random drops (reduced from 0.02)
+            } 
+            // Auto Trigger (Default Rain)
+            // Probability depends on speed too? 
+            // No, just interval. If fixed interval passed, we spawn.
+            // But we want it random.
+            else {
                  spawnRipple(width, height, 10f)
                  lastPuddleTime = now
             }
         }
         
-        // Clear
-        // Canvas is transparent? Or Black? 
-        // Usually animations draw on black.
-        // Usually animations draw on black.
-        canvas.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
+        // Clear Background (Black)
+        canvas.drawColor(Color.BLACK) 
         
-        // Update & Draw
+        // --- Update & Draw ---
         val iter = ripples.iterator()
         
-        // Expansion Speed
-        val speed = 1f + (paramSpeed / 255f) * 5f
+        // Expansion Speed (Visual)
+        // Fixed base speed + slight variance? 
+        // Or controlled by Intensity? (If we had it).
+        // Let's make expansion speed fixed or slightly growing.
+        val expansionRate = 2f + (normalizedSpeed * 3f) 
         
         while (iter.hasNext()) {
             val r = iter.next()
             
             // Expand
-            r.radius += speed
+            r.radius += expansionRate
             
             // Fade
-            // Alpha decays based on progress to maxRadius or just linear?
-            // Let's decay linearly.
-            r.alpha -= 2
+            // Alpha decays based on size?
+            // Decay faster if larger.
+            val progress = r.radius / r.maxRadius
+            r.alpha = ((1f - progress) * 255).toInt().coerceIn(0, 255)
             
             if (r.alpha <= 0 || r.radius > r.maxRadius) {
                 iter.remove()
             } else {
                 paint.color = r.color
                 paint.alpha = r.alpha
-                paint.strokeWidth = 3f * (1f - r.radius / r.maxRadius) + 1f // Thin out as it expands
+                // Stroke gets thinner as it expands
+                paint.strokeWidth = 10f * (1f - progress).coerceAtLeast(0.1f)
                 
                 canvas.drawCircle(r.x, r.y, r.radius, paint)
             }
@@ -116,16 +132,22 @@ class PuddlesAnimation : Animation {
     }
     
     private fun spawnRipple(w: Float, h: Float, intensity: Float) {
-        val maxR = min(w, h) * (0.5f + (paramIntensity / 255f))
+        val maxR = min(w, h) * 0.6f // Max size 60% of screen min dim
         
-        val colorIndex = (System.currentTimeMillis() / 20).toInt() % 256
-        val color = _palette.getInterpolatedInt(colorIndex)
+        // Color from Palette
+        // Use random index? Or cycle?
+        // Random is better for "Puddles/Rain".
+        val color = if (_palette != null) {
+            _palette.getInterpolatedInt(Random.nextInt(256))
+        } else {
+             Color.BLUE // Fallback
+        }
         
         ripples.add(Ripple(
             x = Random.nextFloat() * w,
             y = Random.nextFloat() * h,
             radius = 0f,
-            maxRadius = maxR, // Variable based on loudness could be cool too
+            maxRadius = maxR,
             alpha = 255,
             color = color
         ))

@@ -22,7 +22,10 @@ class ParticleSystem(val maxParticles: Int = 100) {
         vx: Float = 0f, vy: Float = 0f,
         ax: Float = 0f, ay: Float = 0f,
         color: Int = Color.WHITE,
-        life: Float = 1.0f
+        life: Float = 1.0f,
+        data1: Float = 0f,
+        data2: Float = 0f,
+        data3: Int = 0
     ): Particle? {
         if (particles.size >= maxParticles) return null
         
@@ -31,7 +34,10 @@ class ParticleSystem(val maxParticles: Int = 100) {
             vx = vx, vy = vy,
             ax = ax, ay = ay,
             color = color,
-            life = life
+            life = life,
+            data1 = data1,
+            data2 = data2,
+            data3 = data3
         )
         particles.add(p)
         return p

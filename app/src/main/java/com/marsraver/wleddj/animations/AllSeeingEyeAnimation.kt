@@ -10,7 +10,11 @@ import com.marsraver.wleddj.engine.Animation
 class AllSeeingEyeAnimation(private val context: Context) : Animation {
 
     private var movie: Movie? = null
-    private var startTime = 0L
+    // Time Logic
+    private var lastFrameTime = 0L
+    private var accumulatedTime = 0.0
+    private var speed = 0.5f // Default mid-speed
+    
     private val paint = Paint().apply { isFilterBitmap = true } // Smooth scaling
 
     init {
@@ -26,7 +30,7 @@ class AllSeeingEyeAnimation(private val context: Context) : Animation {
         val m = movie ?: return
 
         val now = System.currentTimeMillis()
-        if (startTime == 0L) startTime = now
+        if (lastFrameTime == 0L) lastFrameTime = now
         
         // Handle GIF duration
         var duration = m.duration()
@@ -34,7 +38,19 @@ class AllSeeingEyeAnimation(private val context: Context) : Animation {
              duration = 1000 // Fallback default
         }
         
-        val relTime = ((now - startTime) % duration).toInt()
+        // Speed Mapping: 0.0 -> 0x, 0.5 -> 1x, 1.0 -> 3x
+        val multiplier = if (speed <= 0.5f) {
+            speed * 2f // 0 to 1x
+        } else {
+            1f + (speed - 0.5f) * 4f // 1x to 3x
+        }
+        
+        val dt = now - lastFrameTime
+        lastFrameTime = now
+        
+        accumulatedTime += dt * multiplier
+        
+        val relTime = (accumulatedTime % duration).toInt()
         m.setTime(relTime)
 
         // Logic: Scale to Fit Center
@@ -63,4 +79,10 @@ class AllSeeingEyeAnimation(private val context: Context) : Animation {
     }
     
     private fun minOf(a: Float, b: Float): Float = if (a < b) a else b
+
+    override fun supportsSpeed(): Boolean = true
+    override fun setSpeed(speed: Float) {
+        this.speed = speed
+    }
+    override fun getSpeed(): Float = speed
 }

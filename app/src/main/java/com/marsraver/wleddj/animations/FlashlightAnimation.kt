@@ -22,6 +22,8 @@ class FlashlightAnimation : Animation {
         isAntiAlias = true
     }
 
+    private var scaleFactor = 1.0f
+
     override fun draw(canvas: Canvas, width: Float, height: Float) {
         // Init center if not set
         if (targetX < 0) {
@@ -29,8 +31,10 @@ class FlashlightAnimation : Animation {
             targetY = height / 2f
         }
         
-        // Dynamic radius based on viewport size (approx 7.5% of min dimension)
-        val radius = kotlin.math.min(width, height) * 0.075f
+        // Dynamic radius with pinch zoom support
+        // Base: 7.5% of screen. Scaled by user pinch (0.1x to 10x range)
+        val baseRadius = kotlin.math.min(width, height) * 0.075f
+        val radius = (baseRadius * scaleFactor).coerceAtLeast(baseRadius * 0.1f)
         
         // Glowing Spot using Primary Color
         // RadialGradient: Center (Color), Edge (Transparent)
@@ -48,9 +52,62 @@ class FlashlightAnimation : Animation {
         canvas.drawRect(0f, 0f, width, height, paint)
     }
 
+    private var userHasInteracted = false
+
     override fun onTouch(x: Float, y: Float): Boolean {
+        // First Touch: Allow grabbing from anywhere (Snap to finger)
+        if (!userHasInteracted) {
+            userHasInteracted = true
+            targetX = x
+            targetY = y
+            return true
+        }
+
+        // Visual Hit Test: Only consume if touching the "Light Beam"
+        if (targetX >= 0) {
+             val dx = x - targetX
+             val dy = y - targetY
+             val dist = kotlin.math.sqrt(dx*dx + dy*dy)
+             
+             // Dynamic Hit Threshold
+             val hitRadius = 100f * scaleFactor // Heuristic
+             if (dist > hitRadius) {
+                 return false // Too far! Let it fall through to Tron.
+             }
+        }
+        
+        // Direct tap moves it (if hit)
         targetX = x
         targetY = y
+        return true
+    }
+
+    override fun ignoresBounds(): Boolean = true
+
+    override fun onTransform(
+        panX: Float,
+        panY: Float,
+        zoom: Float,
+        rotation: Float
+    ): Boolean {
+        // Always Apply Zoom (so it responds to even small pinches, especially in Layout Mode)
+        scaleFactor = (scaleFactor * zoom).coerceIn(0.5f, 10.0f)
+
+        // Only Pan if NOT zooming significantly (to prevent hopping)
+        if (kotlin.math.abs(zoom - 1f) < 0.002f) {
+             if (targetX < 0) {
+                 // First move before draw? Use safe defaults but accumulation will be off center
+                 // Ideally drawing happens first. If not, just start accumulating from 0?
+                 // But 0,0 is Top Left. User gesture is somewhere.
+                 // We can't know Width/Height here.
+                 // Best effort: Don't vanish.
+             }
+             if (targetX >= 0) { 
+                targetX += panX
+                targetY += panY
+             }
+        }
+        
         return true
     }
 }

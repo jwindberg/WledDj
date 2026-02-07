@@ -159,7 +159,7 @@ class PlayerViewModel(
         
         val region = com.marsraver.wleddj.model.AnimationRegion(
             rect = regionSize.let { s -> android.graphics.RectF(100f, 100f, 100f+s, 100f+s) }, // explicit
-            animation = com.marsraver.wleddj.animations.BouncingBallAnimation(50f, 50f, 30f)
+            animation = com.marsraver.wleddj.animations.BouncingBallAnimation()
         )
         _engine.value?.addRegion(region)
         refreshRegions()
@@ -193,6 +193,9 @@ class PlayerViewModel(
     val selectedRegionId: StateFlow<String?> = _selectedRegionId.asStateFlow()
 
     fun selectRegion(id: String?) {
+        // Prevent selection changes (and Z-order changes) in Performance Mode
+        if (_isInteractiveMode.value) return 
+
         if (id != null) {
             _engine.value?.bringToFront(id)
             refreshRegions() // Update list order in VM
@@ -209,9 +212,11 @@ class PlayerViewModel(
         val supportsSecondary: Boolean = false,
         val supportsPalette: Boolean = false,
         val supportsText: Boolean = false,
+        val supportsSpeed: Boolean = false,
+        val currentSpeed: Float = 0.5f,
         val primaryColor: Int = android.graphics.Color.WHITE,
         val secondaryColor: Int = android.graphics.Color.BLACK,
-        val currentPalette: Palette = Palette.STANDARD,
+        val currentPalette: Palette = Palette.RAINBOW,
         val currentText: String = ""
     )
     
@@ -223,7 +228,7 @@ class PlayerViewModel(
         val region = if (id != null) _engine.value?.getRegions()?.find { it.id == id } else null
         val anim = region?.animation
         
-        val pal = anim?.currentPalette ?: Palette.STANDARD
+        val pal = anim?.currentPalette ?: Palette.RAINBOW
 
         if (anim != null) {
             _animationControlsState.value = AnimationControlsState(
@@ -232,6 +237,8 @@ class PlayerViewModel(
                 supportsSecondary = anim.supportsSecondaryColor(),
                 supportsPalette = anim.supportsPalette(),
                 supportsText = anim.supportsText(),
+                supportsSpeed = anim.supportsSpeed(),
+                currentSpeed = anim.getSpeed(),
                 primaryColor = anim.primaryColor,
                 secondaryColor = anim.secondaryColor,
                 currentPalette = pal,
@@ -267,6 +274,15 @@ class PlayerViewModel(
         val anim = getSelectedAnimation() ?: return
         if (anim.supportsText()) {
             anim.setText(text)
+            refreshControlsState()
+            saveAnimations()
+        }
+    }
+    
+    fun setSpeed(speed: Float) {
+        val anim = getSelectedAnimation() ?: return
+        if (anim.supportsSpeed()) {
+            anim.setSpeed(speed)
             refreshControlsState()
             saveAnimations()
         }
@@ -329,7 +345,7 @@ class PlayerViewModel(
              if (targetSize > maxAllowedSize) maxAllowedSize else targetSize
         }
         
-         val animation = AnimationFactory.createAnimation(type, getApplication(), dropX, dropY)
+         val animation = AnimationFactory.createAnimation(type, getApplication())
         
         // Center: If fullscreen, strictly center on installation. Else use drop point.
         val cx = if (isFullscreen) installW / 2f else dropX
@@ -352,7 +368,7 @@ class PlayerViewModel(
 
     private fun isFullscreenEffect(type: AnimationType): Boolean {
         // Only TronRecognizer remains fullscreen by default for now
-        return type == AnimationType.TRON_RECOGNIZER
+        return false // type == AnimationType.TRON_RECOGNIZER
     }
     
     private fun minCode(a: Float, b: Float): Float = if (a < b) a else b
@@ -373,9 +389,9 @@ class PlayerViewModel(
     }
     
     fun handleCanvasTransform(targetX: Float, targetY: Float, panX: Float, panY: Float, zoom: Float, rotation: Float) {
-        if (_isInteractiveMode.value) {
-            _engine.value?.handleTransform(targetX, targetY, panX, panY, zoom, rotation)
-        }
+        // Allow transforms in all modes (UI handles restriction of Pan vs Zoom)
+        // This enables "Pinch to Resize" in Animation Layout Mode.
+        _engine.value?.handleTransform(targetX, targetY, panX, panY, zoom, rotation)
     }
 
 
@@ -391,6 +407,16 @@ class PlayerViewModel(
     
     private fun stopMonitoring() {
         networkManager.stopMonitoring()
+    }
+    
+    fun onGestureEnded() {
+        _engine.value?.resetGestureLock()
+        // iterate save if needed, but primarily for lock reset
+        saveAnimations()
+    }
+    
+    fun broadcastCommand(cmd: String) {
+        _engine.value?.broadcastCommand(cmd)
     }
 
     fun pauseEngine() {

@@ -14,7 +14,17 @@ class ScrollingTextAnimation : Animation {
     private var _text = "HELLO WLED"
     private var textWidth = 0f
     private var scrollX = 0f
-    private val scrollSpeed = 5f // Pixels per frame
+
+    
+    // Speed Control
+    // Default 60 = ~5 pixels/frame (matches previous constant)
+    private var paramSpeed = 60
+    
+    override fun supportsSpeed(): Boolean = true
+    override fun setSpeed(speed: Float) {
+        paramSpeed = (speed * 255f).toInt().coerceIn(0, 255)
+    }
+    override fun getSpeed(): Float = paramSpeed / 255f
 
     private var _primaryColor = Color.GREEN // Default matrix green
     override var primaryColor: Int
@@ -57,7 +67,10 @@ class ScrollingTextAnimation : Animation {
         paint.color = _primaryColor
 
         // Update position
-        scrollX -= scrollSpeed
+
+        // Map 0..255 to 1..20 pixels per frame
+        val speedPx = 1f + (paramSpeed / 255f) * 19f
+        scrollX -= speedPx
         
         // Loop logic: If text goes fully off-screen left, wrap to right
         if (scrollX < -textWidth) {

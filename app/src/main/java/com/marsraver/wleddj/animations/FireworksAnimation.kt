@@ -88,10 +88,10 @@ class FireworksAnimation : Animation {
             paint.color = p.color
             paint.alpha = (p.alpha * 255).toInt()
             
-            // Tuned Sizes
-            // Rocket: 12f (was 25f)
-            // Spark: 8f (was 12f)
-            val radius = if (p.type == Type.ROCKET) 12f else 8f
+            // Tuned Sizes (Halved)
+            // Rocket: 6f (was 12f)
+            // Spark: 4f (was 8f)
+            val radius = if (p.type == Type.ROCKET) 6f else 4f
             
             canvas.drawCircle(p.x, p.y, radius, paint)
         }
@@ -116,19 +116,17 @@ class FireworksAnimation : Animation {
     }
 
     private fun explodeRocket(rocket: Particle, outList: MutableList<Particle>) {
-        val isMultiColor = Random.nextFloat() < 0.3f // 30% chance of confetti
-        val baseHue = Random.nextFloat() * 360f
-        val baseColor = Color.HSVToColor(floatArrayOf(baseHue, 1f, 1f))
+        // Pick a random palette for this explosion
+        val randomPalette = com.marsraver.wleddj.engine.color.Palette.entries.random()
         
         for (i in 0 until 100) {
             val angle = Random.nextFloat() * Math.PI.toFloat() * 2f
             val speed = Random.nextFloat() * 7f + 2f 
             
-            val pColor = if (isMultiColor) {
-                 Color.HSVToColor(floatArrayOf(Random.nextFloat() * 360f, 1f, 1f))
-            } else {
-                 if (Random.nextBoolean()) baseColor else Color.WHITE
-            }
+            // Pick a color from the chosen palette
+            // We use a random index (0-255) to sample the palette gradient/colors
+            val colorIndex = Random.nextInt(0, 256)
+            val pColor = randomPalette.getInterpolatedInt(colorIndex)
             
             outList.add(
                 Particle(

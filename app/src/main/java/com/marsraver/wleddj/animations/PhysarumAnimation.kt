@@ -12,11 +12,12 @@ import kotlin.random.Random
 class PhysarumAnimation : Animation {
 
     override fun supportsPrimaryColor(): Boolean = false
-    override var primaryColor: Int = Color.WHITE // Default to White to not affect Palette
+    override var primaryColor: Int = Color.WHITE
     override fun supportsSecondaryColor(): Boolean = false
     override var secondaryColor: Int = Color.BLACK
     override fun supportsPalette(): Boolean = true
-    override var currentPalette: Palette? = null
+    // Default to CYTOPLASMIC for that organic Slime look
+    override var currentPalette: Palette? = Palette.CYTOPLASMIC
 
     private val WIDTH = 64
     private val HEIGHT = 64
@@ -29,8 +30,20 @@ class PhysarumAnimation : Animation {
     private val sensorAngle = Math.PI / 4
     private val sensorDist = 5.0
     private val turnAngle = Math.PI / 4
-    private val moveSpeed = 1.0
     private val decayRate = 0.95f
+    
+    // Params
+    private var moveSpeed = 1.0
+    private var paramSpeed: Int = 128
+    
+    // Speed Support
+    override fun supportsSpeed(): Boolean = true
+    override fun setSpeed(speed: Float) {
+        paramSpeed = (speed * 255f).toInt().coerceIn(0, 255)
+        // Map 0..255 -> 0.2 .. 3.0
+        moveSpeed = 0.2 + (paramSpeed / 255.0) * 2.8
+    }
+    override fun getSpeed(): Float = paramSpeed / 255f
     
     // reusable objects
     private val paint = Paint()

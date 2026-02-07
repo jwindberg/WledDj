@@ -10,7 +10,13 @@ class SnowAnimation : Animation {
     
     // Config
     private val flakeCount = 100
-    private val windSpeed = 0.5f
+    private var paramSpeed = 128
+    
+    override fun supportsSpeed(): Boolean = true
+    override fun setSpeed(speed: Float) {
+        paramSpeed = (speed * 255f).toInt().coerceIn(0, 255)
+    }
+    override fun getSpeed(): Float = paramSpeed / 255f
     
     // State
     private data class Snowflake(
@@ -64,8 +70,11 @@ class SnowAnimation : Animation {
         
         flakes.forEach { flake ->
             // Move
-            flake.y += flake.speed
+            val speedMult = 0.5f + (paramSpeed / 128f) * 1.5f // 0.5x to 3.5x speed
+            flake.y += flake.speed * speedMult
+            
             // Drift
+            val windSpeed = 0.5f * (paramSpeed / 128f)
             flake.x += kotlin.math.sin(time + flake.driftOffset) * windSpeed
             
             // Draw

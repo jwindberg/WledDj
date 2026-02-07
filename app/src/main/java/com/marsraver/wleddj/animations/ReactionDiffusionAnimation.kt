@@ -14,7 +14,7 @@ class ReactionDiffusionAnimation : Animation {
     override fun supportsSecondaryColor(): Boolean = false
     override var secondaryColor: Int = Color.BLACK
     override fun supportsPalette(): Boolean = true
-    override var currentPalette: Palette? = null
+    override var currentPalette: Palette? = Palette.OCEAN
 
     private val WIDTH = 64
     private val HEIGHT = 64
@@ -25,11 +25,13 @@ class ReactionDiffusionAnimation : Animation {
     
     private class Chemical(var a: Double, var b: Double)
     
-    // Gray-Scott Parameters (Coral-like)
+    private var phase = 0.0
+    
+    // Gray-Scott Parameters (Mutable for morphing)
     private val dA = 1.0
     private val dB = 0.5
-    private val feed = 0.055
-    private val k = 0.062
+    private var feed = 0.055
+    private var k = 0.062
     
     // reusable objects
     private val paint = Paint()
@@ -54,10 +56,27 @@ class ReactionDiffusionAnimation : Animation {
         }
     }
 
+
+
+    // Speed Control
+    override fun supportsSpeed(): Boolean = true
+    private var paramSpeed: Int = 128
+    
+    override fun setSpeed(speed: Float) {
+        paramSpeed = (speed * 255f).toInt().coerceIn(0, 255)
+    }
+    override fun getSpeed(): Float = paramSpeed / 255f
+
     override fun draw(canvas: Canvas, width: Float, height: Float) {
         // Update Simulation
-        // Run multiple steps per frame for speed
-        for (step in 0 until 4) {
+        // Speed controls steps per frame.
+        // 0 (Slow) -> 1 step
+        // 255 (Fast) -> 12 steps (Very fast evolution)
+        // Default 128 -> ~5 steps
+        
+        val steps = 1 + (paramSpeed / 255f * 11).toInt()
+        
+        for (step in 0 until steps) {
              update()
         }
 
@@ -92,12 +111,28 @@ class ReactionDiffusionAnimation : Animation {
     }
 
     private fun update() {
+        // Morph parameters
+        phase += 0.002 // Slow oscillation
+        if (phase > Math.PI * 2) phase -= Math.PI * 2
+        
+        // Feed: 0.030 .. 0.060 (Safe Zone)
+        // Previous 0.090 was too high and killed it.
+        feed = 0.045 + kotlin.math.sin(phase) * 0.015
+        
+        // Kill: 0.060 .. 0.066
+        k = 0.063 + kotlin.math.cos(phase * 0.7) * 0.003
+
+        var totalB = 0.0
+
         for (x in 0 until WIDTH) {
             for (y in 0 until HEIGHT) {
                 val idx = y * WIDTH + x
                 
                 val a = grid[idx].a
                 val b = grid[idx].b
+                
+                // Track total amount of life
+                totalB += b
                 
                 val laplace = laplace(x, y)
                 
@@ -113,6 +148,25 @@ class ReactionDiffusionAnimation : Animation {
         val temp = grid
         grid = next
         next = temp
+        
+        // Life Support: If the pattern dies (totalB near 0), re-seed immediately
+        if (totalB < 1.0) {
+            reset()
+        }
+    }
+    
+    private fun reset() {
+        // Clear
+        for (i in grid.indices) {
+            grid[i].a = 1.0
+            grid[i].b = 0.0
+        }
+        // Seed center
+        for (y in HEIGHT/2 - 5 until HEIGHT/2 + 5) {
+             for (x in WIDTH/2 - 5 until WIDTH/2 + 5) {
+                 grid[y * WIDTH + x].b = 1.0
+             }
+        }
     }
     
     private fun laplace(x: Int, y: Int): Chemical {

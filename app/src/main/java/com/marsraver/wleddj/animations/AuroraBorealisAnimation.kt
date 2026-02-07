@@ -16,9 +16,19 @@ class AuroraBorealisAnimation : Animation {
     private var offset = 0f
 
 
+    override fun supportsSpeed() = true
+    
+    private var speedMultiplier: Float = 1.0f // Default normal speed
+    
+    override fun setSpeed(speed: Float) {
+        speedMultiplier = speed * 2f // Map 0.5 -> 1.0
+    }
+    
+    override fun getSpeed() = speedMultiplier / 2f
+
     override fun draw(canvas: Canvas, width: Float, height: Float) {
         // Standard speed
-        offset += 0.05f
+        offset += 0.05f * speedMultiplier
         
         // Draw 3 layers of waves
         drawWave(canvas, width, height, color = Color.GREEN, speed = 1f, yParams = Triple(0.3f, 50f, 0f))

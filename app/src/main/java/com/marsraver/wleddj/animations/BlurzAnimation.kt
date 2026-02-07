@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.Rect
 import com.marsraver.wleddj.engine.Animation
 import com.marsraver.wleddj.engine.audio.LoudnessMeter
+import com.marsraver.wleddj.engine.color.Palette
 import kotlin.math.*
 import kotlin.random.Random
 
@@ -15,6 +16,13 @@ import kotlin.random.Random
  * Adapted for Android Canvas.
  */
 class BlurzAnimation : Animation {
+
+    private var _palette: Palette = Palette.RAINBOW
+    override var currentPalette: Palette?
+        get() = _palette
+        set(value) { if (value != null) _palette = value }
+
+    override fun supportsPalette(): Boolean = true
 
     private var pixelBrightness: Array<ByteArray>? = null
     private var pixelHue: Array<ByteArray>? = null
@@ -35,10 +43,9 @@ class BlurzAnimation : Animation {
     
     private val RANDOM = Random.Default
     
-    // Palette Helper (Hue to Color)
+    // Palette Helper (Hue acts as Index 0-255)
     private fun getColorFromPalette(hue: Int): Int {
-        val h = hue / 255.0f * 360.0f
-        return Color.HSVToColor(floatArrayOf(h, 1.0f, 1.0f))
+        return _palette.getInterpolatedInt(hue)
     }
 
     init {

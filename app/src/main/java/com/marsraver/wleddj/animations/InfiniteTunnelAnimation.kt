@@ -38,12 +38,22 @@ class InfiniteTunnelAnimation : Animation {
     private var lastVolume = 0f
     private var time = 0f
     
+    // Params
+    private var paramSpeed: Int = 127
+    
     // Rotating effect
     private var rotation = 0f
 
     override fun supportsPrimaryColor(): Boolean = false
     override fun supportsSecondaryColor(): Boolean = false
     override fun supportsPalette(): Boolean = true
+    
+    // Speed Support
+    override fun supportsSpeed(): Boolean = true
+    override fun setSpeed(speed: Float) {
+        paramSpeed = (speed * 255f).toInt().coerceIn(0, 255)
+    }
+    override fun getSpeed(): Float = paramSpeed / 255f
 
     override fun draw(canvas: Canvas, width: Float, height: Float) {
         val cx = width / 2f
@@ -56,7 +66,11 @@ class InfiniteTunnelAnimation : Animation {
         
         // Audio Speed Boost
         // Chill Mode: 0.02 base (was 0.04), 0.1 mult (was 0.2)
-        val targetSpeed = 0.02f + (volume * 0.1f)
+        // paramSpeed: 0..255. Center=127.
+        // Map 0 -> 0.005, 127 -> 0.02, 255 -> 0.05
+        val baseSpeed = 0.005f + (paramSpeed / 255f) * 0.045f
+        
+        val targetSpeed = baseSpeed + (volume * 0.1f)
         speed = speed * 0.95f + targetSpeed * 0.05f // Slower smoothing
 
         // Rotate slightly on beat or constant

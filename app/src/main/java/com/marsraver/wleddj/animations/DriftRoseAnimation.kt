@@ -32,7 +32,7 @@ class DriftRoseAnimation : BasePixelAnimation() {
         val centerX = (width / 2.0) - 0.5
         val centerY = (height / 2.0) - 0.5
         val radius = min(width, height) / 2.0
-        val timeSeconds = now / 1_000_000_000.0
+        val timeSeconds = now / 1000.0
 
         for (i in 1..36) {
             val angle = Math.toRadians(i * 10.0)

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Remove
 // import androidx.compose.material.icons.filled.Edit // Removed unused edit
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.*
 import androidx.lifecycle.Lifecycle
@@ -271,7 +272,7 @@ fun PlayerScreen(
                                      )
                                  }
                              },
-                             onInteractionEnd = { viewModel.saveAnimations() }
+                             onInteractionEnd = { viewModel.onGestureEnded() }
                          )
                     }
                 }
@@ -289,7 +290,8 @@ fun PlayerScreen(
                             onPrimaryColorChange = { viewModel.setPrimaryColor(it) },
                             onSecondaryColorChange = { viewModel.setSecondaryColor(it) },
                             onPaletteChange = { viewModel.setPalette(it) },
-                            onTextChange = { viewModel.updateText(it) }
+                            onTextChange = { viewModel.updateText(it) },
+                            onSpeedChange = { viewModel.setSpeed(it) }
                         )
                     }
                 }
@@ -314,6 +316,46 @@ fun PlayerScreen(
                          // Spacer for nav bar if needed, though ModalBottomSheet handles insets usually
                          Spacer(modifier = Modifier.height(16.dp))
                      }
+                }
+                
+                // 4. PERFORMANCE MODE CONTROLS
+                if (isInteractive) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp)
+                    ) {
+                        val OctagonShape = androidx.compose.foundation.shape.GenericShape { size, _ ->
+                            val width = size.width
+                            val height = size.height
+                            val cornerRatio = 0.29f // 1 / (2 + sqrt(2)) for regular octagon
+                            val cutX = width * cornerRatio
+                            val cutY = height * cornerRatio
+                            
+                            moveTo(cutX, 0f)
+                            lineTo(width - cutX, 0f)
+                            lineTo(width, cutY)
+                            lineTo(width, height - cutY)
+                            lineTo(width - cutX, height)
+                            lineTo(cutX, height)
+                            lineTo(0f, height - cutY)
+                            lineTo(0f, cutY)
+                            close()
+                        }
+
+                        FloatingActionButton(
+                            onClick = { viewModel.broadcastCommand("STOP") },
+                            shape = OctagonShape,
+                            containerColor = Color.Red,
+                            contentColor = Color.White
+                        ) {
+                            Text(
+                                text = "STOP", 
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -43,14 +43,23 @@ class FirefliesAnimation : Animation {
     private var isInitialized = false
     private val random = Random.Default
     
-    // Palette
-    private val fireflyColors = listOf(
-        Color.rgb(255, 220, 100), // Yellow-Gold
-        Color.rgb(200, 255, 100), // Lime-Green
-        Color.rgb(255, 200, 80),  // Orange-Gold
-        Color.rgb(180, 255, 120), // Pale Green
-        Color.rgb(255, 230, 120)  // Light Yellow
-    )
+    // Base class params used here: paramSpeed
+    private var paramSpeed: Int = 128
+    
+    // Palette Support
+    private var _palette: com.marsraver.wleddj.engine.color.Palette = com.marsraver.wleddj.engine.color.Palette.FOREST
+    override var currentPalette: com.marsraver.wleddj.engine.color.Palette?
+        get() = _palette
+        set(value) { if (value != null) _palette = value }
+
+    override fun supportsPalette(): Boolean = true
+    
+    // Speed Support
+    override fun supportsSpeed(): Boolean = true
+    override fun setSpeed(speed: Float) {
+        paramSpeed = (speed * 255).toInt().coerceIn(1, 255)
+    }
+    override fun getSpeed(): Float = paramSpeed / 255f
     
     // Dark Night Background
     private val nightColor = Color.BLACK // Pure Black
@@ -61,19 +70,13 @@ class FirefliesAnimation : Animation {
             isInitialized = true
         }
         
-        // 1. Draw Background
+        // 1. Draw Background (Very dark version of primary or black)
         canvas.drawColor(nightColor)
         
         // 2. Audio Data
-        val bands = fftMeter.getNormalizedBands() // IntArray(32), 0-255
+        val bands = fftMeter.getNormalizedBands() 
         val loudness = loudnessMeter.getCurrentLoudness() 
         val globalBrightness = (loudness / 1024.0 * 0.7 + 0.3).coerceIn(0.3, 1.0)
-        
-        // 3. Update & Draw Fireflies
-        // Use a "Glow" effect. 
-        // Simple efficient glow: Draw circle with semi-transparent alpha, then smaller solid circle? 
-        // Or RadialGradient? RadialGradient is expensive to create every frame.
-        // Let's use simple alpha layers.
         
         fireflies.forEach { firefly ->
             updateFirefly(firefly, width, height, bands)
@@ -81,25 +84,30 @@ class FirefliesAnimation : Animation {
             // Pulse logic
             val pulse = (sin(firefly.pulsePhase) * 0.3 + 0.7).coerceIn(0.0, 1.0).toFloat()
             val finalBrightness = (firefly.brightness * pulse * globalBrightness).toFloat()
+            
+            // Allow palette to determine color based on ID/Band
+            // Map firefly ID or band to palette index (0-255)
+            // Use firefly.frequencyBand to pick color from palette to match audio band
+            val paletteIndex = (firefly.frequencyBand * 255 / 32)
+            firefly.color = _palette.getInterpolatedInt(paletteIndex)
+            
             val alpha = (finalBrightness * 255).toInt().coerceIn(0, 255)
             
             // Draw Glow (Outer)
             paint.color = firefly.color
             paint.alpha = (alpha * 0.3f).toInt()
-            val glowRadius = 12f 
+            val glowRadius = 6f // Was 12f
             canvas.drawCircle(firefly.x, firefly.y, glowRadius, paint)
             
             // Draw Core (Inner)
             paint.alpha = alpha
-            val coreRadius = 3f
+            val coreRadius = 1.5f // Was 3f
             canvas.drawCircle(firefly.x, firefly.y, coreRadius, paint)
         }
     }
     
     private fun initFireflies(w: Float, h: Float) {
         fireflies.clear()
-        // Density derived from logic: min(16, max(8, count))
-        // Let's pick a reasonable number for mobile screen
         val numFireflies = 25
         
         for (i in 0 until numFireflies) {
@@ -114,7 +122,7 @@ class FirefliesAnimation : Animation {
                     brightness = 0.5f,
                     pulsePhase = random.nextDouble() * 2 * PI,
                     frequencyBand = i % 32,
-                    color = fireflyColors[i % fireflyColors.size]
+                    color = Color.WHITE // Will be updated by palette in draw
                 )
             )
         }
@@ -126,7 +134,7 @@ class FirefliesAnimation : Animation {
             bands[firefly.frequencyBand]
         } else { 0 }
         
-        val speedFactor = 1.0 // hardcoded paramSpeed/128
+        val speedFactor = paramSpeed / 128.0
         
         // Brightness Target
         val targetBrightness = (bandValue / 255.0 * 0.8 + 0.2).toFloat()

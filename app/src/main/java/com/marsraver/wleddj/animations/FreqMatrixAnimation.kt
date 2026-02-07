@@ -13,7 +13,7 @@ class FreqMatrixAnimation : BasePixelAnimation() {
 
     override fun supportsPalette(): Boolean = true
 
-    private var startTimeNs: Long = 0L
+    private var startTimeMs: Long = 0L
     private var fftMeter: FftMeter? = null
     private var loudnessMeter: LoudnessMeter? = null
     private var lastSecondHand: Int = -1
@@ -26,7 +26,7 @@ class FreqMatrixAnimation : BasePixelAnimation() {
     private val MAX_FREQUENCY = 11025.0f
 
     override fun onInit() {
-        startTimeNs = System.nanoTime()
+        startTimeMs = System.currentTimeMillis()
         // Use 256 bands to get ~86Hz resolution per band (44100/2/256)
         // This allows distinguishing >80Hz frequencies.
         fftMeter = FftMeter(bands = 256)
@@ -35,15 +35,19 @@ class FreqMatrixAnimation : BasePixelAnimation() {
     }
 
     override fun update(now: Long): Boolean {
-        if (startTimeNs == 0L) startTimeNs = now
-        val micros = (now - startTimeNs) / 1_000L
+        if (startTimeMs == 0L) startTimeMs = now
+        // now is Millis. Convert delta to Micros.
+        val micros = (now - startTimeMs) * 1_000L
         val secondHand = ((micros / (256 - paramSpeed).coerceAtLeast(1) / 500) % 16).toInt()
         
         if (lastSecondHand != secondHand) {
             lastSecondHand = secondHand
             
             var fftMajorPeak = fftMeter?.getMajorPeakFrequency() ?: 1.0f
-            val volumeSmth = (loudnessMeter?.getCurrentLoudness() ?: 0) / 1024.0f * 255.0f
+            
+            // Reverted to usage of LoudnessMeter as Original Source (No Cheating!)
+            // Using Normalized Loudness to ensure it works across different device mic sensitivities.
+            val volumeSmth = (loudnessMeter?.getNormalizedLoudness() ?: 0) / 1024.0f * 255.0f
             
             val sensitivity = mapValue(custom3, 0, 31, 1, 10)
             var pixVal = (volumeSmth * paramIntensity * sensitivity) / 256.0f
@@ -54,11 +58,13 @@ class FreqMatrixAnimation : BasePixelAnimation() {
             
             if (fftMajorPeak > MAX_FREQUENCY) fftMajorPeak = 1.0f
             
-            if (fftMajorPeak < 80) {
-                color = Color.BLACK
+            if (fftMajorPeak < 20) {
+                // Only black out if truly NO frequency signal (e.g. 0-20Hz noise floor?)
+                // Actually, let's allow Deep Bass visualization.
+                color = Color.BLACK 
             } else {
                 val upperLimit = 80 + 42 * custom2
-                val lowerLimit = 80 + 3 * custom1
+                val lowerLimit = 20 + 3 * custom1 // Relaxed lower limit
                 val hue = if (lowerLimit != upperLimit) {
                     mapValue(fftMajorPeak.toInt(), lowerLimit, upperLimit, 0, 255)
                 } else {

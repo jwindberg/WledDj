@@ -138,6 +138,17 @@ enum class Palette(val displayName: String, val colors: Array<RgbColor>) {
         RgbColor(192, 192, 192),// Silver
         RgbColor(255, 0, 0),    // Red
         RgbColor(0, 255, 0)     // Green
+    )),
+
+    @SerialName("Cytoplasmic") CYTOPLASMIC("Cytoplasmic Gold", arrayOf(
+        RgbColor(85, 107, 47),   // Dark Olive Green (Deep Base)
+        RgbColor(128, 128, 0),   // Olive (Mid Base)
+        RgbColor(218, 165, 32),  // Goldenrod
+        RgbColor(255, 215, 0),   // Gold
+        RgbColor(255, 255, 0),   // Yellow
+        RgbColor(173, 255, 47),  // Green Yellow (Highlight)
+        RgbColor(127, 255, 0),   // Chartreuse (Touch of Green)
+        RgbColor(255, 255, 224)  // Light Yellow (Peak Brightness)
     ));
 
     /**

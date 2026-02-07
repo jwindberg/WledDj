@@ -25,6 +25,13 @@ class HiphoticAnimation : Animation {
 
     override fun supportsPalette(): Boolean = true
 
+    // Speed Support
+    override fun supportsSpeed(): Boolean = true
+    override fun setSpeed(speed: Float) {
+        paramSpeed = (speed * 255f).toInt().coerceIn(0, 255)
+    }
+    override fun getSpeed(): Float = paramSpeed / 255f
+
     // State
     // We render to a fixed low-res buffer for performance and "smoothness" when scaled up
     private val RENDER_WIDTH = 80

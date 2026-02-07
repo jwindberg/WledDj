@@ -50,9 +50,10 @@ class TartanAnimation : BasePixelAnimation() {
         val timeSeconds = now / 1_000_000_000.0
         val freqScale = paramSpeed / 128.0
         
-        offsetX = beatsin(timeSeconds, 0.25 * freqScale, -180.0, 180.0)
-        offsetY = beatsin(timeSeconds, 0.18 * freqScale, -180.0, 180.0, phaseOffsetSeconds = 6.0)
-        horizontalScale = beatsin(timeSeconds, 0.35 * freqScale, 0.5, 4.0)
+        // Boosted frequencies to make movement visible
+        offsetX = beatsin(timeSeconds, 1.0 * freqScale, -180.0, 180.0)
+        offsetY = beatsin(timeSeconds, 0.75 * freqScale, -180.0, 180.0, phaseOffsetSeconds = 6.0)
+        horizontalScale = beatsin(timeSeconds, 1.4 * freqScale, 0.5, 4.0)
         
         for (x in 0 until width) {
             val hueX = (x * horizontalScale + offsetY + hueBase).toFloat()

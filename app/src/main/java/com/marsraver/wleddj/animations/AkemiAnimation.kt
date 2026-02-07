@@ -33,7 +33,7 @@ class AkemiAnimation : BasePixelAnimation() {
         // Let's assume standard millis.
 
         val speedFactor = (paramSpeed shr 2) + 2
-        var counter = ((timeMs * speedFactor / 1000) and 0xFFFF).toInt() // adjusted time scale
+        var counter = ((timeMs * speedFactor) and 0xFFFF).toInt() // adjusted time scale
         counter = counter shr 8
 
         val lightFactor = 0.15f

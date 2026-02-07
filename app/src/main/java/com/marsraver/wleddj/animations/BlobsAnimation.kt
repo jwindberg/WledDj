@@ -22,6 +22,13 @@ class BlobsAnimation : Animation {
         set(value) { if (value != null) _palette = value }
 
     override fun supportsPalette(): Boolean = true
+    override fun supportsSpeed(): Boolean = true
+    
+    override fun setSpeed(speed: Float) {
+        paramSpeed = (speed * 255).toInt()
+    }
+    
+    override fun getSpeed(): Float = paramSpeed / 255f
 
     // State
     private class Blob {

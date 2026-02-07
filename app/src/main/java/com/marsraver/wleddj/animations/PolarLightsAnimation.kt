@@ -29,6 +29,13 @@ class PolarLightsAnimation : Animation {
     private var paramSpeed: Int = 128
     private var paramIntensity: Int = 128
 
+    // Speed Support
+    override fun supportsSpeed(): Boolean = true
+    override fun setSpeed(speed: Float) {
+        paramSpeed = (speed * 255f).toInt().coerceIn(0, 255)
+    }
+    override fun getSpeed(): Float = paramSpeed / 255f
+
     // State
     private var timeZ = 0.0
     private val path = Path()

@@ -22,6 +22,13 @@ class GhostRiderAnimation : Animation {
         set(value) { if (value != null) _palette = value }
 
     override fun supportsPalette(): Boolean = true
+    
+    // Speed Support
+    override fun supportsSpeed(): Boolean = true
+    override fun setSpeed(speed: Float) {
+        paramSpeed = (speed * 255f).toInt().coerceIn(0, 255)
+    }
+    override fun getSpeed(): Float = paramSpeed / 255f
 
     // State
     private var buffer: Bitmap? = null
