@@ -39,7 +39,8 @@ class BlobsAnimation : Animation {
         var radius: Float = 10f
         var color: Int = Color.WHITE
         var alpha: Int = 200
-        
+        var colorIndex: Int = 0
+
         // Wobble state
         val phaseOffsets = FloatArray(8) { Random.nextFloat() * 6.28f }
         val wobblespeeds = FloatArray(8) { 0.05f + Random.nextFloat() * 0.1f }
@@ -72,6 +73,9 @@ class BlobsAnimation : Animation {
         time += 0.1f * speedMult
         
         blobs.forEach { blob ->
+            // Re-sample color from the current palette every frame so palette changes apply immediately
+            blob.color = _palette.getInterpolatedInt(blob.colorIndex)
+
             // Move
             blob.x += blob.vx * speedMult
             blob.y += blob.vy * speedMult
@@ -147,6 +151,7 @@ class BlobsAnimation : Animation {
         
         // Color
         val colorIndex = Random.nextInt(256)
+        b.colorIndex = colorIndex
         b.color = _palette.getInterpolatedInt(colorIndex)
         b.alpha = 150 + Random.nextInt(105) // Semi-transparent
         
