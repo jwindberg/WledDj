@@ -200,6 +200,9 @@ enum class AnimationType(
     @SerialName("Popcorn") 
     POPCORN("Popcorn", false, PopcornAnimation::class, { _ -> PopcornAnimation() }),
     
+    @SerialName("LightEchos")
+    LIGHT_ECHOS("Light Echos", true, LightEchosAnimation::class, { _ -> LightEchosAnimation() }),
+    
     @SerialName("Unknown") 
     UNKNOWN("Unknown", false, null, { _ -> BouncingBallAnimation() });
 
