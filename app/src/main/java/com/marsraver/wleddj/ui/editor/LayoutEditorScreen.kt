@@ -194,7 +194,7 @@ fun LayoutEditorScreen(
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                     } else {
                         LazyColumn {
-                            items(discoveredDevices) { device ->
+                            items(discoveredDevices.sortedBy { it.name.lowercase() }) { device ->
                                 // Filter out already added devices visually
                                 val isAdded = installation.devices.any { it.ip == device.ip } == true
                                 if (!isAdded) {
