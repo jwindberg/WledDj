@@ -104,11 +104,11 @@ class FftMeter(
                     val min = history.minOrNull() ?: 0
                     val max = history.maxOrNull() ?: 255
                     
-                    if (max > min) {
+                    if (max > min + 2) { // Allow a tiny bit of noise floor jitter
                         val position = ((currentValue - min).toDouble() / (max - min)).coerceIn(0.0, 1.0)
                         (position * 255.0).toInt().coerceIn(0, 255)
                     } else {
-                        128
+                        0 // Return 0 in true silence, not 50% volume
                     }
                 }
             }

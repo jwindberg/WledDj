@@ -33,9 +33,7 @@ class PlayerViewModel(
     private val _installation = MutableStateFlow<com.marsraver.wleddj.model.Installation?>(null)
     val installation = _installation.asStateFlow()
 
-    init {
-        loadInstallation()
-    }
+
 
     private var _originalInstallation: com.marsraver.wleddj.model.Installation? = null
     // HttpClient moved to NetworkManager
@@ -397,6 +395,10 @@ class PlayerViewModel(
 
 
     val deviceStatuses = networkManager.deviceStatuses
+
+    init {
+        loadInstallation()
+    }
     
     private fun startMonitoring() {
         // Update targets whenever we start, just in case

@@ -34,6 +34,12 @@ class BouncingBallAnimation : Animation {
     private var dy = 5f
     private val paint = Paint().apply { color = _primaryColor }
     
+    // Touch Feedback
+    private var isTouching = false
+    private var lastTouchX = -1f
+    private var lastTouchY = -1f
+    private val touchPaint = Paint().apply { isAntiAlias = true }
+    
     init {
         // Ensure UI picks up default
         primaryColor = Color.RED
@@ -61,6 +67,21 @@ class BouncingBallAnimation : Animation {
             }
         }
 
+        // Draw Touch Feedback Spot
+        if (isTouching) {
+            val spotRadius = kotlin.math.min(width, height) * 0.1f // Slightly larger than flashlight base
+            val safeRadius = spotRadius.coerceAtLeast(50f)
+            val shader = android.graphics.RadialGradient(
+                lastTouchX, lastTouchY,
+                safeRadius,
+                intArrayOf(Color.argb(128, 255, 255, 255), Color.TRANSPARENT),
+                floatArrayOf(0.1f, 1.0f),
+                android.graphics.Shader.TileMode.CLAMP
+            )
+            touchPaint.shader = shader
+            canvas.drawCircle(lastTouchX, lastTouchY, safeRadius, touchPaint)
+        }
+
         canvas.drawCircle(x, y, radius, paint)
     }
 
@@ -76,6 +97,10 @@ class BouncingBallAnimation : Animation {
 
     override fun onTouch(touchX: Float, touchY: Float): Boolean {
         val now = System.currentTimeMillis()
+
+        isTouching = true
+        lastTouchX = touchX
+        lastTouchY = touchY
 
         if (isDragging) {
             // Updated Position
@@ -148,6 +173,7 @@ class BouncingBallAnimation : Animation {
     }
 
     override fun onInteractionEnd() {
+        isTouching = false
         if (isDragging) {
             // ... (existing logic) ...
             isDragging = false
@@ -195,6 +221,8 @@ class BouncingBallAnimation : Animation {
             dy = 0f
             velocityHistory.clear()
             isDragging = false // Force release if dragging
+            isTouching = false
         }
     }
 }
+

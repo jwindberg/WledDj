@@ -203,6 +203,63 @@ enum class AnimationType(
     @SerialName("LightEchos")
     LIGHT_ECHOS("Light Echos", true, LightEchosAnimation::class, { _ -> LightEchosAnimation() }),
     
+    @SerialName("PsBallpit")
+    PS_BALLPIT("PS Ballpit", false, PsBallpitAnimation::class, { _ -> PsBallpitAnimation() }),
+    
+    @SerialName("PsFireworks")
+    PS_FIREWORKS("PS Fireworks", false, PsFireworksAnimation::class, { _ -> PsFireworksAnimation() }),
+    
+    @SerialName("PsVolcano")
+    PS_VOLCANO("PS Volcano", false, PsVolcanoAnimation::class, { _ -> PsVolcanoAnimation() }),
+    
+    @SerialName("PsFire")
+    PS_FIRE("PS Fire", false, PsFireAnimation::class, { _ -> PsFireAnimation() }),
+    
+    @SerialName("PsDripDrop")
+    PS_DRIPDROP("PS DripDrop", false, PsDripDropAnimation::class, { _ -> PsDripDropAnimation() }),
+    
+    @SerialName("PsGeq2D")
+    PS_GEQ2D("PS GEQ 2D", true, PsGeq2DAnimation::class, { _ -> PsGeq2DAnimation() }),
+    
+    @SerialName("PsSonicStream")
+    PS_SONIC_STREAM("PS Sonic Stream", true, PsSonicStreamAnimation::class, { _ -> PsSonicStreamAnimation() }),
+    
+    @SerialName("PsGhostRider")
+    PS_GHOSTRIDER("PS Ghost Rider", false, PsGhostRiderAnimation::class, { _ -> PsGhostRiderAnimation() }),
+    
+    @SerialName("PsHourglass")
+    PS_HOURGLASS("PS Hourglass", false, PsHourglassAnimation::class, { _ -> PsHourglassAnimation() }),
+    
+    @SerialName("PsGalaxy")
+    PS_GALAXY("PS Galaxy", false, PsGalaxyAnimation::class, { _ -> PsGalaxyAnimation() }),
+    
+    @SerialName("PsVortex")
+    PS_VORTEX("PS Vortex", false, PsVortexAnimation::class, { _ -> PsVortexAnimation() }),
+    
+    @SerialName("PsSpringy")
+    PS_SPRINGY("PS Springy", false, PsSpringyAnimation::class, { _ -> PsSpringyAnimation() }),
+    
+    @SerialName("PsGeqNova")
+    PS_GEQ_NOVA("PS GEQ Nova", true, PsGeqNovaAnimation::class, { _ -> PsGeqNovaAnimation() }),
+    
+    @SerialName("PsImpact")
+    PS_IMPACT("PS Impact", true, PsImpactAnimation::class, { _ -> PsImpactAnimation() }),
+    
+    @SerialName("PsSpray")
+    PS_SPRAY("PS Spray", true, PsSprayAnimation::class, { _ -> PsSprayAnimation() }),
+    
+    @SerialName("PsBox")
+    PS_BOX("PS Box", false, PsBoxAnimation::class, { _ -> PsBoxAnimation() }),
+    
+    @SerialName("PsChase")
+    PS_CHASE("PS Chase", false, PsChaseAnimation::class, { _ -> PsChaseAnimation() }),
+    
+    @SerialName("PsFuzzyNoise")
+    PS_FUZZY_NOISE("PS Fuzzy Noise", false, PsFuzzyNoiseAnimation::class, { _ -> PsFuzzyNoiseAnimation() }),
+    
+    @SerialName("PacMan")
+    PACMAN("PacMan", false, PacManAnimation::class, { _ -> PacManAnimation() }),
+    
     @SerialName("Unknown") 
     UNKNOWN("Unknown", false, null, { _ -> BouncingBallAnimation() });
 

@@ -143,6 +143,44 @@ abstract class BasePixelAnimation : Animation {
         if (index in 0 until pixelCount) return pixels[index]
         return Color.BLACK
     }
+    
+    open fun drawBlob(x: Float, y: Float, color: Int, size: Int = 3) {
+        val cx = x.toInt()
+        val cy = y.toInt()
+        if (size <= 1) {
+            setPixelColor(cx, cy, color)
+            return
+        }
+        
+        if (size == 2) {
+            setPixelColor(cx, cy, color)
+            setPixelColor(cx + 1, cy, color)
+            setPixelColor(cx, cy + 1, color)
+            setPixelColor(cx + 1, cy + 1, color)
+            return
+        }
+        
+        if (size == 3) {
+            // Cross shape for 3x3 circle
+            setPixelColor(cx, cy, color)
+            setPixelColor(cx - 1, cy, color)
+            setPixelColor(cx + 1, cy, color)
+            setPixelColor(cx, cy - 1, color)
+            setPixelColor(cx, cy + 1, color)
+            return
+        }
+        
+        // Generalized drawing for larger sizes
+        val radius = size / 2.0f
+        val bound = kotlin.math.ceil(radius).toInt()
+        for (dy in -bound..bound) {
+            for (dx in -bound..bound) {
+                if (dx*dx + dy*dy <= radius*radius) {
+                    setPixelColor(cx + dx, cy + dy, color)
+                }
+            }
+        }
+    }
 
     // --- Effects Helpers ---
     

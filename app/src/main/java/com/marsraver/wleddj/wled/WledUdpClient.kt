@@ -36,14 +36,15 @@ class WledUdpClient {
                 buffer[0] = flags.toByte()
 
                 buffer[1] = 0.toByte()    // Sequence
-                buffer[2] = 1.toByte()    // Type: RGB
+                buffer[2] = 0x0B.toByte() // Type: RGB 24-bit (0x0B)
                 buffer[3] = 1.toByte()    // ID
                 
-                // Offset (Big Endian 32-bit int, offset in PIXELS)
-                buffer[4] = (pixelOffset shr 24).toByte()
-                buffer[5] = (pixelOffset shr 16).toByte()
-                buffer[6] = (pixelOffset shr 8).toByte()
-                buffer[7] = (pixelOffset and 0xFF).toByte()
+                // Offset (Big Endian 32-bit int, offset in BYTES/channels)
+                val byteOffset = pixelOffset * 3
+                buffer[4] = (byteOffset shr 24).toByte()
+                buffer[5] = (byteOffset shr 16).toByte()
+                buffer[6] = (byteOffset shr 8).toByte()
+                buffer[7] = (byteOffset and 0xFF).toByte()
                 
                 // Length (Big Endian 16-bit int, length in BYTES)
                 buffer[8] = (chunkLen shr 8).toByte()
