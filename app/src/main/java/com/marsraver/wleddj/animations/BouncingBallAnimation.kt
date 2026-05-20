@@ -9,7 +9,7 @@ class BouncingBallAnimation : Animation {
     
     private var x: Float = 50f
     private var y: Float = 50f
-    private val radius: Float = 30f
+    private val radius: Float = 12f
     
     // Capability
     override fun supportsPrimaryColor(): Boolean = true
@@ -69,8 +69,8 @@ class BouncingBallAnimation : Animation {
 
         // Draw Touch Feedback Spot
         if (isTouching) {
-            val spotRadius = kotlin.math.min(width, height) * 0.1f // Slightly larger than flashlight base
-            val safeRadius = spotRadius.coerceAtLeast(50f)
+            val spotRadius = kotlin.math.min(width, height) * 0.03f // Sleek scale appropriate for standard screen
+            val safeRadius = spotRadius.coerceIn(8f, 15f) // Clamped to standard phone cursor size
             val shader = android.graphics.RadialGradient(
                 lastTouchX, lastTouchY,
                 safeRadius,
@@ -117,12 +117,13 @@ class BouncingBallAnimation : Animation {
             return true
         }
 
-        // Hit Test
+        // Hit Test with a slightly larger virtual touch target for premium user experience
+        val touchTargetRadius = radius.coerceAtLeast(30f)
         val curDx = touchX - x
         val curDy = touchY - y
         val distSq = curDx*curDx + curDy*curDy
 
-        if (distSq < radius*radius) {
+        if (distSq < touchTargetRadius*touchTargetRadius) {
             // INSIDE: Start Drag
             isDragging = true
             dx = 0f
@@ -137,8 +138,9 @@ class BouncingBallAnimation : Animation {
             return true
         } else {
             // OUTSIDE: Repel
-            // Only Repel if within proximity (e.g. 3x radius)
-            if (distSq > (radius * 3) * (radius * 3)) {
+            // Only Repel if within proximity
+            val repelProximity = (radius * 3f).coerceAtLeast(60f)
+            if (distSq > repelProximity * repelProximity) {
                 return false
             }
 
