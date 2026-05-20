@@ -38,6 +38,8 @@ class BouncingBallAnimation : Animation {
     private var isTouching = false
     private var lastTouchX = -1f
     private var lastTouchY = -1f
+    private var lastTouchTime = 0L
+    private var canGrab = false
     private val touchPaint = Paint().apply { isAntiAlias = true }
     
     init {
@@ -49,6 +51,34 @@ class BouncingBallAnimation : Animation {
         if (!isDragging) {
             x += dx
             y += dy
+
+            // Check collision with stationary touch pointer to bounce off it
+            if (isTouching) {
+                val curDx = x - lastTouchX
+                val curDy = y - lastTouchY
+                val distSq = curDx * curDx + curDy * curDy
+                val bounceRadius = radius + 8f // Slightly larger than ball to align with touch pointer
+                
+                if (distSq < bounceRadius * bounceRadius) {
+                    var dirX = curDx
+                    var dirY = curDy
+                    val len = Math.sqrt((dirX * dirX + dirY * dirY).toDouble()).toFloat()
+                    if (len > 0.001f) {
+                        dirX /= len
+                        dirY /= len
+                        
+                        // Push outside to prevent sticking/jitter
+                        x = lastTouchX + dirX * bounceRadius
+                        y = lastTouchY + dirY * bounceRadius
+                        
+                        // Bounce velocity away
+                        val speed = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+                        val targetSpeed = if (speed < 0.1f) 5f else speed
+                        dx = dirX * targetSpeed
+                        dy = dirY * targetSpeed
+                    }
+                }
+            }
 
             if (x - radius < 0) {
                 x = radius
@@ -97,10 +127,33 @@ class BouncingBallAnimation : Animation {
 
     override fun onTouch(touchX: Float, touchY: Float): Boolean {
         val now = System.currentTimeMillis()
+        val isFirstTouch = !isTouching
 
         isTouching = true
+
+        val curDx = touchX - x
+        val curDy = touchY - y
+        val distSq = curDx * curDx + curDy * curDy
+        val grabRadius = radius * 1.2f
+
+        if (isFirstTouch) {
+            // Can only grab the ball if the touch gesture initially went down directly on the ball
+            canGrab = distSq < grabRadius * grabRadius
+        }
+
+        var touchSpeed = 0f
+        if (!isFirstTouch && lastTouchTime > 0L) {
+            val dt = now - lastTouchTime
+            if (dt > 0) {
+                val tDx = touchX - lastTouchX
+                val tDy = touchY - lastTouchY
+                touchSpeed = kotlin.math.sqrt(tDx * tDx + tDy * tDy) / dt
+            }
+        }
+
         lastTouchX = touchX
         lastTouchY = touchY
+        lastTouchTime = now
 
         if (isDragging) {
             // Updated Position
@@ -117,14 +170,10 @@ class BouncingBallAnimation : Animation {
             return true
         }
 
-        // Hit Test with a slightly larger virtual touch target for premium user experience
-        val touchTargetRadius = radius.coerceAtLeast(30f)
-        val curDx = touchX - x
-        val curDy = touchY - y
-        val distSq = curDx*curDx + curDy*curDy
+        val isFastStrike = touchSpeed > 0.4f // Pixels per ms threshold for swipe/flick speed
 
-        if (distSq < touchTargetRadius*touchTargetRadius) {
-            // INSIDE: Start Drag
+        if (canGrab && distSq < grabRadius * grabRadius && !isFastStrike) {
+            // INSIDE, SLOW & STARTED ON BALL: Start Drag/Grab
             isDragging = true
             dx = 0f
             dy = 0f
@@ -137,10 +186,12 @@ class BouncingBallAnimation : Animation {
             velocityHistory.add(HistoryPoint(now, x, y))
             return true
         } else {
-            // OUTSIDE: Repel
-            // Only Repel if within proximity
+            // OUTSIDE, FAST, or touch started elsewhere: Repel
+            // Only repel if the touch is a fast strike (flick/swipe) to prevent a "force field" feeling
+            // when the user is trying to deliberately grab/touch the ball.
             val repelProximity = (radius * 3f).coerceAtLeast(60f)
-            if (distSq > repelProximity * repelProximity) {
+
+            if (!isFastStrike || distSq > repelProximity * repelProximity) {
                 return false
             }
 
@@ -176,6 +227,8 @@ class BouncingBallAnimation : Animation {
 
     override fun onInteractionEnd() {
         isTouching = false
+        lastTouchTime = 0L
+        canGrab = false
         if (isDragging) {
             // ... (existing logic) ...
             isDragging = false
@@ -224,6 +277,8 @@ class BouncingBallAnimation : Animation {
             velocityHistory.clear()
             isDragging = false // Force release if dragging
             isTouching = false
+            lastTouchTime = 0L
+            canGrab = false
         }
     }
 }
