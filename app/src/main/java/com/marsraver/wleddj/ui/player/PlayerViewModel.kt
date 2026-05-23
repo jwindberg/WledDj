@@ -11,6 +11,7 @@ import com.marsraver.wleddj.engine.RenderEngine
 // Animations imports delegated to AnimationFactory
 import com.marsraver.wleddj.engine.color.Palette
 import com.marsraver.wleddj.model.AnimationType
+import com.marsraver.wleddj.animations.ImageAnimation
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -215,7 +216,10 @@ class PlayerViewModel(
         val primaryColor: Int = android.graphics.Color.WHITE,
         val secondaryColor: Int = android.graphics.Color.BLACK,
         val currentPalette: Palette = Palette.RAINBOW,
-        val currentText: String = ""
+        val currentText: String = "",
+        val isImage: Boolean = false,
+        val isCamera: Boolean = false,
+        val isFrontCamera: Boolean = false
     )
     
     private val _animationControlsState = MutableStateFlow(AnimationControlsState())
@@ -240,7 +244,10 @@ class PlayerViewModel(
                 primaryColor = anim.primaryColor,
                 secondaryColor = anim.secondaryColor,
                 currentPalette = pal,
-                currentText = if (anim.supportsText()) anim.getText() else ""
+                currentText = if (anim.supportsText()) anim.getText() else "",
+                isImage = anim is ImageAnimation,
+                isCamera = anim is com.marsraver.wleddj.animations.CameraAnimation,
+                isFrontCamera = anim is com.marsraver.wleddj.animations.CameraAnimation && anim.getText() == "front"
             )
         } else {
             _animationControlsState.value = AnimationControlsState()
@@ -272,6 +279,17 @@ class PlayerViewModel(
         val anim = getSelectedAnimation() ?: return
         if (anim.supportsText()) {
             anim.setText(text)
+            refreshControlsState()
+            saveAnimations()
+        }
+    }
+
+    fun toggleCameraFacing() {
+        val anim = getSelectedAnimation() ?: return
+        if (anim is com.marsraver.wleddj.animations.CameraAnimation) {
+            val current = anim.getText()
+            val next = if (current == "front") "back" else "front"
+            anim.setText(next)
             refreshControlsState()
             saveAnimations()
         }
@@ -328,7 +346,7 @@ class PlayerViewModel(
         }
     }
 
-    fun onToolDropped(type: AnimationType, dropX: Float, dropY: Float, installW: Float, installH: Float, zoom: Float) {
+    fun onToolDropped(type: AnimationType, dropX: Float, dropY: Float, installW: Float, installH: Float, zoom: Float, initialText: String? = null) {
         val isFullscreen = isFullscreenEffect(type)
         
         val size = if (isFullscreen) {
@@ -344,6 +362,9 @@ class PlayerViewModel(
         }
         
          val animation = AnimationFactory.createAnimation(type, getApplication())
+         if (initialText != null && animation.supportsText()) {
+             animation.setText(initialText)
+         }
         
         // Center: If fullscreen, strictly center on installation. Else use drop point.
         val cx = if (isFullscreen) installW / 2f else dropX

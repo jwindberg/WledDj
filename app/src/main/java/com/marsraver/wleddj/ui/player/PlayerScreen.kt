@@ -45,6 +45,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.marsraver.wleddj.repository.FileInstallationRepository
+import com.marsraver.wleddj.ui.components.ImageCropDialog
+import com.marsraver.wleddj.model.AnimationType
 import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.res.stringResource
@@ -105,12 +107,68 @@ fun PlayerScreen(
     val installation by viewModel.installation.collectAsState()
     val selectedRegionId by viewModel.selectedRegionId.collectAsState()
     val regions by viewModel.regions.collectAsState()
+    val controlsState by viewModel.animationControlsState.collectAsState()
+
+    var cameraPermissionGranted by remember {
+        mutableStateOf(
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.CAMERA
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val cameraPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        cameraPermissionGranted = isGranted
+    }
+
+    val hasCameraAnimation = regions.any { it.animation is com.marsraver.wleddj.animations.CameraAnimation }
+    val activeCameraRegion = regions.find { it.animation is com.marsraver.wleddj.animations.CameraAnimation }
+    val isFrontLens = if (selectedRegionId != null && controlsState.isCamera) {
+        controlsState.isFrontCamera
+    } else {
+        activeCameraRegion?.animation?.getText() == "front"
+    }
+
+    LaunchedEffect(hasCameraAnimation, cameraPermissionGranted) {
+        if (hasCameraAnimation && !cameraPermissionGranted) {
+            cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+        }
+    }
+
+    DisposableEffect(hasCameraAnimation, cameraPermissionGranted, isFrontLens, lifecycleOwner) {
+        if (hasCameraAnimation && cameraPermissionGranted) {
+            android.util.Log.d("PlayerScreen", "Starting CameraManager: front = $isFrontLens")
+            com.marsraver.wleddj.camera.CameraManager.start(
+                context = context,
+                lifecycleOwner = lifecycleOwner,
+                front = isFrontLens
+            )
+        }
+        onDispose {
+            android.util.Log.d("PlayerScreen", "Stopping CameraManager (onDispose)")
+            com.marsraver.wleddj.camera.CameraManager.stop()
+        }
+    }
     
     val isInteractive by viewModel.isInteractiveMode.collectAsState()
 
     val canvasGeometry = remember { CanvasGeometry() }
 
     var showSheet by remember { mutableStateOf(false) }
+
+    var pendingCropUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var isEditingExistingImage by remember { mutableStateOf(false) }
+
+    val imagePickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            pendingCropUri = uri
+        }
+    }
 
     // Wake Lock Logic - Default to ON per user request
     var isScreenLocked by remember { mutableStateOf(true) }
@@ -279,7 +337,6 @@ fun PlayerScreen(
                 
                 // 2. CONTROLS BAR (Overlay at Bottom)
                 if (!isInteractive) {
-                    val controlsState by viewModel.animationControlsState.collectAsState()
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
@@ -291,35 +348,65 @@ fun PlayerScreen(
                             onSecondaryColorChange = { viewModel.setSecondaryColor(it) },
                             onPaletteChange = { viewModel.setPalette(it) },
                             onTextChange = { viewModel.updateText(it) },
-                            onSpeedChange = { viewModel.setSpeed(it) }
+                            onSpeedChange = { viewModel.setSpeed(it) },
+                            onChooseImage = {
+                                isEditingExistingImage = true
+                                imagePickerLauncher.launch("image/*")
+                            },
+                            onToggleCamera = { viewModel.toggleCameraFacing() }
                         )
                     }
                 }
 
                 // 3. BOTTOM SHEET (Standard ModalBottomSheet)
                 if (showSheet && !isInteractive) {
-                     ModalBottomSheet(onDismissRequest = { showSheet = false }) {
-                         AnimationSelectionSheet(
-                             onSelect = { type ->
-                                    val width = installation!!.width
-                                    val height = installation!!.height
-                                    
-                                    // Drop at Center of Viewport (Camera Position)
-                                    val cx = installation!!.cameraX ?: (width / 2f)
-                                    val cy = installation!!.cameraY ?: (height / 2f)
-                                    val zoom = installation!!.cameraZoom
-                                    
-                                    viewModel.onToolDropped(type, cx, cy, width, height, zoom)
+                      ModalBottomSheet(onDismissRequest = { showSheet = false }) {
+                          AnimationSelectionSheet(
+                              onSelect = { type ->
+                                    if (type == AnimationType.IMAGE) {
+                                        isEditingExistingImage = false
+                                        imagePickerLauncher.launch("image/*")
+                                    } else {
+                                        val width = installation!!.width
+                                        val height = installation!!.height
+                                        
+                                        // Drop at Center of Viewport (Camera Position)
+                                        val cx = installation!!.cameraX ?: (width / 2f)
+                                        val cy = installation!!.cameraY ?: (height / 2f)
+                                        val zoom = installation!!.cameraZoom
+                                        
+                                        viewModel.onToolDropped(type, cx, cy, width, height, zoom)
+                                    }
                                     showSheet = false
-                             }
-                         )
-                         // Spacer for nav bar if needed, though ModalBottomSheet handles insets usually
-                         Spacer(modifier = Modifier.height(16.dp))
-                     }
+                              }
+                          )
+                          // Spacer for nav bar if needed, though ModalBottomSheet handles insets usually
+                          Spacer(modifier = Modifier.height(16.dp))
+                      }
                 }
-                
-                // 4. PERFORMANCE MODE CONTROLS
-                if (isInteractive) {
+                                // 5. IMAGE CROP AND RESIZE DIALOG
+                 if (pendingCropUri != null && !isInteractive) {
+                     ImageCropDialog(
+                         imageUri = pendingCropUri!!,
+                         onDismiss = { pendingCropUri = null },
+                         onSuccess = { filePath ->
+                             if (isEditingExistingImage) {
+                                 viewModel.updateText(filePath)
+                             } else {
+                                 val width = installation!!.width
+                                 val height = installation!!.height
+                                 val cx = installation!!.cameraX ?: (width / 2f)
+                                 val cy = installation!!.cameraY ?: (height / 2f)
+                                 val zoom = installation!!.cameraZoom
+                                 viewModel.onToolDropped(AnimationType.IMAGE, cx, cy, width, height, zoom, filePath)
+                             }
+                             pendingCropUri = null
+                         }
+                     )
+                 }
+
+                 // 4. PERFORMANCE MODE CONTROLS
+                 if (isInteractive) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)

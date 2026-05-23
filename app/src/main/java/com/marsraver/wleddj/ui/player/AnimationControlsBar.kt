@@ -28,7 +28,9 @@ fun AnimationControlsBar(
     onSecondaryColorChange: (Int) -> Unit,
     onPaletteChange: (Palette) -> Unit,
     onTextChange: (String) -> Unit,
-    onSpeedChange: (Float) -> Unit
+    onSpeedChange: (Float) -> Unit,
+    onChooseImage: () -> Unit = {},
+    onToggleCamera: () -> Unit = {}
 ) {
     if (!state.hasSelection) return
 
@@ -105,11 +107,25 @@ fun AnimationControlsBar(
         if (state.supportsText) {
             Spacer(modifier = Modifier.width(16.dp))
             Button(
-                onClick = { showTextPicker = true },
+                onClick = { 
+                    if (state.isImage) {
+                        onChooseImage()
+                    } else if (state.isCamera) {
+                        onToggleCamera()
+                    } else {
+                        showTextPicker = true 
+                    }
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text(stringResource(R.string.action_text))
+                Text(
+                    when {
+                        state.isImage -> "Change Image"
+                        state.isCamera -> if (state.isFrontCamera) "Front Camera" else "Back Camera"
+                        else -> stringResource(R.string.action_text)
+                    }
+                )
             }
         }
         }

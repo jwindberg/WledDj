@@ -259,6 +259,12 @@ enum class AnimationType(
     
     @SerialName("PacMan")
     PACMAN("PacMan", false, PacManAnimation::class, { _ -> PacManAnimation() }),
+
+    @SerialName("Image")
+    IMAGE("Image", false, ImageAnimation::class, { _ -> ImageAnimation() }),
+    
+    @SerialName("Camera")
+    CAMERA("Camera", false, CameraAnimation::class, { _ -> CameraAnimation() }),
     
     @SerialName("Unknown") 
     UNKNOWN("Unknown", false, null, { _ -> BouncingBallAnimation() });
