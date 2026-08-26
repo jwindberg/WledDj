@@ -305,11 +305,15 @@ class RenderEngine(
         }
         
         // Send outside lock
-        packetsToSend.forEach { (ip, data) ->
-            try {
-                udpClient.sendFrame(ip, data)
-            } catch (e: Exception) {
-                // Ignore send errors
+        coroutineScope {
+            packetsToSend.forEach { (ip, data) ->
+                launch {
+                    try {
+                        udpClient.sendFrame(ip, data)
+                    } catch (e: Exception) {
+                        // Ignore send errors
+                    }
+                }
             }
         }
     }

@@ -97,14 +97,6 @@ class EditorViewModel(
             val name = info?.name ?: discovered.name
             val pixelCount = info?.leds?.count ?: 100 // Default
             
-            // Limit Check: 480 LEDs
-            if (pixelCount > 480) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Error: Devices with more than 480 LEDs are not supported.", Toast.LENGTH_LONG).show()
-                }
-                return@launch
-            }
-            
             // Determine dimensions
             val wledW = info?.leds?.matrix?.w ?: 0
             val rawH = info?.leds?.matrix?.h ?: 0
@@ -259,21 +251,10 @@ class EditorViewModel(
     
     fun forceRefreshDeviceConfig(device: WledDevice) {
         viewModelScope.launch {
-            // 1. Fetch Info for count check
-            val info = httpClient.getDeviceInfo(device.ip)
-            val count = info?.leds?.count ?: 0
-            
-            if (count > 480) {
-                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Error: Devices with more than 480 LEDs are not supported.", Toast.LENGTH_LONG).show()
-                }
-                return@launch
-            }
-
             val config = httpClient.getDeviceConfig(device.ip)
-            
             val matrix = config?.hw?.led?.matrix
             val panel = matrix?.panels?.firstOrNull()
+            val count = if (config?.hw?.led?.total != null && config.hw.led.total > 0) config.hw.led.total else if (panel != null) panel.w * panel.h else device.pixelCount
             
             if (panel != null) {
                  val vertText = if (panel.v) "Vertical" else "Horizontal"
