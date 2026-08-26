@@ -266,6 +266,9 @@ enum class AnimationType(
     @SerialName("Camera")
     CAMERA("Camera", false, CameraAnimation::class, { _ -> CameraAnimation() }),
     
+    @SerialName("FingerPaint")
+    FINGER_PAINT("Finger Paint", false, FingerPaintAnimation::class, { _ -> FingerPaintAnimation() }),
+    
     @SerialName("Unknown") 
     UNKNOWN("Unknown", false, null, { _ -> BouncingBallAnimation() });
 

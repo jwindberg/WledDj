@@ -11,6 +11,11 @@ data class WledInfoResponse(
 @Serializable
 data class WledLedsInfo(
     val count: Int,
+    val matrix: WledMatrixInfo? = null
+)
+
+@Serializable
+data class WledMatrixInfo(
     val w: Int = 0,
     val h: Int = 0
 )

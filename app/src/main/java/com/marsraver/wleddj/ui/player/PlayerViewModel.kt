@@ -109,6 +109,7 @@ class PlayerViewModel(
          _engine.value = newEngine
          newEngine.start()
          refreshRegions()
+         startMonitoring()
     }
     
     // Helper used by loadInstallation if viewport not ready
@@ -136,6 +137,7 @@ class PlayerViewModel(
          _engine.value = newEngine
          newEngine.start()
          refreshRegions()
+         startMonitoring()
     }
 
     // Regions State
