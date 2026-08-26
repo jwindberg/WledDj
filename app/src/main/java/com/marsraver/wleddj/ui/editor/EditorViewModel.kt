@@ -106,8 +106,8 @@ class EditorViewModel(
             }
             
             // Determine dimensions
-            val wledW = info?.leds?.w ?: 0
-            val rawH = info?.leds?.h ?: 0
+            val wledW = info?.leds?.matrix?.w ?: 0
+            val rawH = info?.leds?.matrix?.h ?: 0
             // If H is 0 but W is > 0, infer H
             val wledH = if (rawH > 0) rawH else if (wledW > 0 && pixelCount > 0) pixelCount / wledW else 0
             
