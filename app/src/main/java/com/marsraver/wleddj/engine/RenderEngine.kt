@@ -434,7 +434,19 @@ class RenderEngine(
         val h = bufferBitmap.height
         
         if (isLikelyMatrix) {
-             var cols = device.segmentWidth
+             var cols = if (device.matrixWidth > 0) device.matrixWidth else device.segmentWidth
+             // Auto-heal if saved device had single-panel dimensions for a multi-panel matrix
+             if (cols > 0 && device.matrixHeight > 0 && cols * device.matrixHeight < device.pixelCount) {
+                 val ratio = device.pixelCount / (cols * device.matrixHeight)
+                 if (ratio >= 2) {
+                     val mult = kotlin.math.sqrt(ratio.toFloat()).roundToInt()
+                     if (mult * mult == ratio) {
+                         cols *= mult
+                     } else {
+                         cols *= ratio
+                     }
+                 }
+             }
              // Fallback for badly configured matrices
             if (cols <= 0) {
                  val sqrt = kotlin.math.sqrt(device.pixelCount.toFloat())

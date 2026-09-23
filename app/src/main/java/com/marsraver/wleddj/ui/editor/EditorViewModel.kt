@@ -148,34 +148,44 @@ class EditorViewModel(
             // Immediate config fetch to populate details
             val config = httpClient.getDeviceConfig(discovered.ip)
             val matrix = config?.hw?.led?.matrix
-            val panel = matrix?.panels?.firstOrNull()
+            val panels = matrix?.panels
+            val firstPanel = panels?.firstOrNull()
             
-            val finalizedDevice = if (panel != null) {
-                val vertText = if (panel.v) "Vertical" else "Horizontal"
-                val startV = if (panel.b) "Bottom" else "Top"
-                val startH = if (panel.r) "Right" else "Left"
-                
-                // Recalculate visual dimensions from panel config (definitive source)
-                val pW = panel.w.toFloat()
-                val pH = panel.h.toFloat()
-                val visualRatio = if (pW > 0) pH / pW else 1f
-                val visualW = 200f
-                val visualH = 200f * visualRatio
+            val finalizedDevice = if (!panels.isNullOrEmpty()) {
+                val totalW = panels.maxOf { it.x + it.w }
+                val totalH = panels.maxOf { it.y + it.h }
+                val vertText = if (firstPanel?.v == true) "Vertical" else "Horizontal"
+                val startV = if (firstPanel?.b == true) "Bottom" else "Top"
+                val startH = if (firstPanel?.r == true) "Right" else "Left"
                 
                 newDevice.copy(
                     is2D = true,
-                    // Update visuals to match reality
-                    // Update visuals to match reality with spacing
-                    width = panel.w * newDevice.horizontalLedSpacing,
-                    height = panel.h * newDevice.verticalLedSpacing,
-                    matrixWidth = panel.w,
-                    matrixHeight = panel.h,
-                    serpentine = panel.s,
-                    // vertical = panel.v, (Removed from model)
-                    segmentWidth = panel.w, // Authority
+                    width = totalW * newDevice.horizontalLedSpacing,
+                    height = totalH * newDevice.verticalLedSpacing,
+                    matrixWidth = totalW,
+                    matrixHeight = totalH,
+                    serpentine = firstPanel?.s ?: false,
+                    segmentWidth = totalW, // Authority
                     firstLed = "$startV-$startH",
                     orientation = vertText,
-                    panelDescription = "Panel 0 (of ${matrix.panels?.size ?: 1})"
+                    panelDescription = if (panels.size > 1) "${panels.size} panels (${firstPanel?.w}x${firstPanel?.h} each)" else "Panel 0 (of 1)"
+                )
+            } else if (firstPanel != null) {
+                val vertText = if (firstPanel.v) "Vertical" else "Horizontal"
+                val startV = if (firstPanel.b) "Bottom" else "Top"
+                val startH = if (firstPanel.r) "Right" else "Left"
+                
+                newDevice.copy(
+                    is2D = true,
+                    width = firstPanel.w * newDevice.horizontalLedSpacing,
+                    height = firstPanel.h * newDevice.verticalLedSpacing,
+                    matrixWidth = firstPanel.w,
+                    matrixHeight = firstPanel.h,
+                    serpentine = firstPanel.s,
+                    segmentWidth = firstPanel.w, // Authority
+                    firstLed = "$startV-$startH",
+                    orientation = vertText,
+                    panelDescription = "Panel 0 (of 1)"
                 )
             } else newDevice
 
@@ -253,30 +263,45 @@ class EditorViewModel(
         viewModelScope.launch {
             val config = httpClient.getDeviceConfig(device.ip)
             val matrix = config?.hw?.led?.matrix
-            val panel = matrix?.panels?.firstOrNull()
-            val count = if (config?.hw?.led?.total != null && config.hw.led.total > 0) config.hw.led.total else if (panel != null) panel.w * panel.h else device.pixelCount
-            
-            if (panel != null) {
-                 val vertText = if (panel.v) "Vertical" else "Horizontal"
-                 val startV = if (panel.b) "Bottom" else "Top"
-                 val startH = if (panel.r) "Right" else "Left"
+            val panels = matrix?.panels
+            val firstPanel = panels?.firstOrNull()
+            val totalW = if (!panels.isNullOrEmpty()) {
+                panels.maxOf { it.x + it.w }
+            } else if (device.matrixWidth > 0) {
+                device.matrixWidth
+            } else firstPanel?.w ?: 0
 
-                 // Recalculate Dimensions to match addDevice logic (Visual Reset)
-                 // Recalculate Dimensions to match addDevice logic (Visual Reset)
-                 val newW = panel.w * device.horizontalLedSpacing
-                 val newH = panel.h * device.verticalLedSpacing
+            val totalH = if (!panels.isNullOrEmpty()) {
+                panels.maxOf { it.y + it.h }
+            } else if (device.matrixHeight > 0) {
+                device.matrixHeight
+            } else firstPanel?.h ?: 0
+
+            val count = if (config?.hw?.led?.total != null && config.hw.led.total > 0) {
+                config.hw.led.total
+            } else if (totalW > 0 && totalH > 0) {
+                totalW * totalH
+            } else device.pixelCount
+            
+            if (firstPanel != null) {
+                 val vertText = if (firstPanel.v) "Vertical" else "Horizontal"
+                 val startV = if (firstPanel.b) "Bottom" else "Top"
+                 val startH = if (firstPanel.r) "Right" else "Left"
+
+                 val newW = totalW * device.horizontalLedSpacing
+                 val newH = totalH * device.verticalLedSpacing
 
                  val updated = device.copy(
                      width = newW,
                      height = newH,
-                     segmentWidth = panel.w,
+                     segmentWidth = totalW,
                      is2D = true,
-                     matrixWidth = panel.w,
-                     matrixHeight = panel.h,
-                     serpentine = panel.s, // s = serpentine
+                     matrixWidth = totalW,
+                     matrixHeight = totalH,
+                     serpentine = firstPanel.s, // s = serpentine
                      firstLed = "$startV-$startH",
                      orientation = vertText,
-                     panelDescription = "Panel 0 (of ${matrix.panels?.size ?: 1})",
+                     panelDescription = if ((panels?.size ?: 1) > 1) "${panels?.size} panels (${firstPanel.w}x${firstPanel.h} each)" else "Panel 0 (of 1)",
                      pixelCount = count // Also update pixel count!
                  )
                  
